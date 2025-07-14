@@ -1,0 +1,36 @@
+# 排除編譯後的大檔案
+dist/
+build/
+*.exe
+*.pkg
+*.dmg
+*.msi
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 日誌檔案
+*.log
+
+# 臨時檔案
+*.tmp
+*.temp
+.claude/settings.local.json
