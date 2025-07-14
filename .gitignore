@@ -5,7 +5,8 @@ build/
 *.pkg
 *.dmg
 *.msi
-
+*.spec
+*.zip
 # Python
 __pycache__/
 *.pyc

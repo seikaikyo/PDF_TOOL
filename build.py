@@ -16,7 +16,7 @@ from pathlib import Path
 class PDFToolkitBuilder:
 
     def __init__(self):
-        self.app_name = "PDF合併工具"
+        self.app_name = "PDFToolkit"
         self.script_name = "app.py"
         self.system = platform.system()
         self.requirements = [
@@ -27,7 +27,7 @@ class PDFToolkitBuilder:
     def print_header(self):
         """顯示標題"""
         print("=" * 50)
-        print(f"    {self.app_name} 跨平台打包工具")
+        print(f"    PDF工具包 ({self.app_name}) 跨平台打包工具")
         print("    作者：")
         print(f"    系統：{self.system} {platform.release()}")
         print("=" * 50)
@@ -142,6 +142,30 @@ class PDFToolkitBuilder:
             sys.executable, "-m", "PyInstaller", "--onefile", "--windowed",
             f"--name={self.app_name}", "--clean", "--noconfirm"
         ]
+        
+        # 添加隱藏導入（用於確保必要模組被包含）
+        hidden_imports = [
+            "tkinterdnd2", "PIL", "PIL._tkinter_finder", "fitz", 
+            "pyfiglet", "pyfiglet.fonts", "tkinter", "tkinter.ttk", 
+            "tkinter.filedialog", "tkinter.messagebox"
+        ]
+        
+        for module in hidden_imports:
+            cmd.extend(["--hidden-import", module])
+        
+        # 添加數據文件（pyfiglet字體）
+        try:
+            import pyfiglet
+            pyfiglet_path = pyfiglet.__path__[0]
+            fonts_path = os.path.join(pyfiglet_path, "fonts")
+            if os.path.exists(fonts_path):
+                # 使用正確的路徑分隔符
+                separator = ";" if self.system == "Windows" else ":"
+                cmd.extend(["--add-data", f"{fonts_path}{separator}pyfiglet/fonts"])
+                print(f"✅ 添加pyfiglet字體路徑：{fonts_path}")
+        except Exception as e:
+            print(f"⚠️  無法找到pyfiglet字體：{e}")
+            print("   這可能會導致字體相關功能無法使用")
 
         # 系統特定參數
         if self.system == "Windows":
@@ -152,12 +176,10 @@ class PDFToolkitBuilder:
                 cmd.append("--icon=icon.png")
             cmd.append("--osx-bundle-identifier=com.pdftools.merger")
 
-        # 排除不必要的模組
+        # 排除不必要的模組（保守排除，只排除確定不需要的）
         exclude_modules = [
             "matplotlib", "numpy", "scipy", "pandas", "jupyter", "IPython",
-            "setuptools", "distutils", "email", "html", "http", "urllib",
-            "xml", "test", "unittest", "sqlite3", "tkinter.test", "lib2to3",
-            "pydoc"
+            "test", "unittest", "tkinter.test", "lib2to3", "pydoc", "doctest"
         ]
 
         for module in exclude_modules:
@@ -219,7 +241,7 @@ class PDFToolkitBuilder:
         """創建使用說明"""
         print("\n📄 創建使用說明...")
 
-        readme_content = f"""# {self.app_name}
+        readme_content = f"""# PDF工具包 (PDFToolkit)
 
 ## 系統資訊
 - 建立時間：{platform.node()} - {sys.version}
@@ -232,7 +254,10 @@ class PDFToolkitBuilder:
 - ✅ 直覺的圖形化介面
 - ✅ 支援拖放操作
 - ✅ 即時預覽功能
-- ✅ PDF 簽名編輯
+- ✅ PDF 數位簽名編輯
+- ✅ 手寫簽名功能
+- ✅ 圖片簽名上傳
+- ✅ 文字插入與編輯
 
 ## 使用方法
 1. 執行程式

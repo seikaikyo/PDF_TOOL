@@ -1,6 +1,6 @@
-# PDF Toolkit - Professional PDF Merger & Signature Tool
-# PDF ツールキット - プロフェッショナル PDF マージャー＆署名ツール
-# PDF 工具包 - 專業 PDF 合併與簽名工具
+# PDF Toolkit - Complete PDF Solution
+# PDF ツールキット - 完全な PDF ソリューション
+# PDF 工具包 - 完整 PDF 解決方案
 
 [English](#english) | [日本語](#japanese) | [繁體中文](#traditional-chinese)
 
@@ -9,7 +9,7 @@
 ## English
 
 ### Overview
-A comprehensive PDF toolkit with merging and digital signature capabilities, featuring an intuitive graphical interface built with Python and Tkinter.
+A complete PDF processing solution that combines merging, digital signatures, splitting, and compression capabilities into one powerful application. Built with Python and Tkinter, featuring an intuitive graphical interface for all your PDF needs.
 
 ### Features
 
@@ -28,11 +28,26 @@ A comprehensive PDF toolkit with merging and digital signature capabilities, fea
 - **Multi-signature Support**: Add multiple signatures and text elements per page
 - **Real-time Preview**: See changes immediately on the PDF preview
 
+#### PDF Splitting
+- **Split by Page Count**: Divide PDF into files with specified number of pages
+- **Split by Page Range**: Extract specific page ranges as separate files
+- **Single Page Extraction**: Extract individual pages as standalone PDFs
+- **Flexible Output**: Choose output directory and custom naming
+
+#### PDF Compression
+- **Multiple Compression Levels**: Light, Medium, Heavy compression options
+- **Image Optimization**: Compress embedded images with quality control
+- **Advanced Options**: Remove unnecessary objects, optimize fonts
+- **Size Reduction**: Significant file size reduction while maintaining quality
+- **Progress Tracking**: Real-time compression progress display
+
 #### User Experience
+- **Unified Interface**: All PDF operations in one application
 - **Responsive Design**: Adaptive layout for different screen sizes
 - **Keyboard Shortcuts**: Quick access to scaling and deletion functions
-- **Comprehensive Logging**: Detailed operation logs for troubleshooting
-- **Coordinate System**: Accurate positioning that preserves location when saving
+- **Error Logging**: Comprehensive error tracking with detailed logs
+- **Progress Feedback**: Real-time progress indicators for all operations
+- **Intuitive Controls**: User-friendly interface suitable for all skill levels
 
 ### Requirements
 - Python 3.7 or higher
@@ -67,6 +82,20 @@ python app.py
 4. **Position & Resize**: Drag to move, use +/- keys or toolbar buttons to scale
 5. **Save Signed PDF**: Click "Save PDF" to export the final document
 
+**For PDF Splitting:**
+1. **Load PDF**: Open a single PDF file using "Select PDF Files"
+2. **Open Split Tool**: Click the "Split PDF" button
+3. **Choose Method**: Select split by pages, range, or single page extraction
+4. **Set Parameters**: Configure page numbers or ranges as needed
+5. **Select Output**: Choose destination folder and start splitting
+
+**For PDF Compression:**
+1. **Load PDF**: Open a single PDF file using "Select PDF Files"
+2. **Open Compress Tool**: Click the "Compress PDF" button
+3. **Choose Level**: Select Light, Medium, or Heavy compression
+4. **Configure Options**: Enable/disable image compression, object removal, font optimization
+5. **Save Compressed**: Choose output location and start compression
+
 #### Keyboard Shortcuts (Signature Mode)
 - **+ or =**: Enlarge selected signature/text
 - **-**: Shrink selected signature/text
@@ -94,7 +123,7 @@ python build.py
 ## Japanese
 
 ### 概要
-PDF マージとデジタル署名機能を備えた包括的な PDF ツールキットで、Python と Tkinter で構築された直感的なグラフィカルインターフェースを持ちます。
+PDF の統合、デジタル署名、分割、圧縮機能を一つのアプリケーションに統合した完全な PDF 処理ソリューション。Python と Tkinter で構築され、すべての PDF ニーズに対応する直感的なグラフィカルインターフェースを提供します。
 
 ### 機能
 
@@ -112,6 +141,19 @@ PDF マージとデジタル署名機能を備えた包括的な PDF ツール�
 - **インタラクティブ編集**: PDF 上のどこでも署名/テキストをドラッグ、リサイズ、配置
 - **複数署名サポート**: ページごとに複数の署名とテキスト要素を追加
 - **リアルタイムプレビュー**: PDF プレビューで変更を即座に確認
+
+#### PDF 分割
+- **ページ数で分割**: 指定したページ数でファイルを分割
+- **ページ範囲で分割**: 特定のページ範囲を個別ファイルとして抽出
+- **単ページ抽出**: 個別ページを独立した PDF として抽出
+- **柔軟な出力**: 出力ディレクトリとカスタム命名を選択
+
+#### PDF 圧縮
+- **複数の圧縮レベル**: 軽度、中度、重度の圧縮オプション
+- **画像最適化**: 品質制御付きの埋め込み画像圧縮
+- **高度なオプション**: 不要なオブジェクトの削除、フォント最適化
+- **サイズ削減**: 品質を維持しながら大幅なファイルサイズ削減
+- **進捗追跡**: リアルタイム圧縮進捗表示
 
 #### ユーザーエクスペリエンス
 - **レスポンシブデザイン**: 異なる画面サイズに適応するレイアウト
@@ -160,7 +202,7 @@ python build.py
 ## Traditional Chinese
 
 ### 概述
-一個功能完整的 PDF 工具包，具備合併和數位簽名功能，使用 Python 和 Tkinter 構建，擁有直觀的圖形使用者介面。
+一個完整的 PDF 處理解決方案，將合併、數位簽名、拆分和壓縮功能整合到一個強大的應用程式中。使用 Python 和 Tkinter 構建，為您的所有 PDF 需求提供直觀的圖形使用者介面。
 
 ### 功能特色
 
@@ -178,6 +220,19 @@ python build.py
 - **互動式編輯**: 在 PDF 上任意位置拖曳、調整大小和定位簽名/文字
 - **多重簽名支援**: 每頁可添加多個簽名和文字元素
 - **即時預覽**: 在 PDF 預覽中立即查看變更
+
+#### PDF 拆分
+- **按頁數拆分**: 將 PDF 分割為指定頁數的檔案
+- **按頁面範圍拆分**: 將特定頁面範圍擷取為個別檔案
+- **單頁擷取**: 將個別頁面擷取為獨立的 PDF
+- **彈性輸出**: 選擇輸出目錄和自訂命名
+
+#### PDF 壓縮
+- **多種壓縮級別**: 輕度、中度、重度壓縮選項
+- **圖片最佳化**: 具品質控制的嵌入圖片壓縮
+- **進階選項**: 移除不必要物件、字體最佳化
+- **大小縮減**: 在保持品質的同時大幅減少檔案大小
+- **進度追蹤**: 即時壓縮進度顯示
 
 #### 使用者體驗
 - **響應式設計**: 適應不同螢幕尺寸的自適應佈局
@@ -245,10 +300,30 @@ dash_pdf/
 ├── app.py                 # Main application file / メインアプリケーションファイル / 主應用程式檔案
 ├── build.py              # Build script for executable / 実行ファイル用ビルドスクリプト / 可執行檔案構建腳本
 ├── requirements.txt      # Python dependencies / Python依存関係 / Python依賴項
-├── icon.ico             # Application icon / アプリケーションアイコン / 應用程式圖示
-├── README.md            # This file / このファイル / 此檔案
+├── icon.ico             # Application icon (Windows) / アプリケーションアイコン (Windows) / 應用程式圖示 (Windows)
+├── icon.png             # Application icon (macOS/Linux) / アプリケーションアイコン (macOS/Linux) / 應用程式圖示 (macOS/Linux)
+├── create_icon.py       # Icon generation script / アイコン生成スクリプト / 圖示生成腳本
+├── README.md            # This documentation / このドキュメント / 此說明文件
 └── dist/                # Generated executables / 生成された実行ファイル / 生成的可執行檔案
+    ├── PDFToolkit.exe   # Windows executable / Windows実行ファイル / Windows可執行檔案
+    ├── PDFToolkit       # macOS/Linux executable / macOS/Linux実行ファイル / macOS/Linux可執行檔案
+    └── README.md        # Build information / ビルド情報 / 構建資訊
 ```
+
+## Distribution / 配布 / 發布
+
+### Executable Files / 実行ファイル / 可執行檔案
+After building, you will find the following files in the `dist/` folder:
+
+構建後，您可以在 `dist/` 資料夾中找到以下檔案：
+
+- **Windows**: `PDFToolkit.exe` (single executable file)
+- **macOS**: `PDFToolkit` or `PDFToolkit.app` (application bundle)  
+- **Linux**: `PDFToolkit` (single executable file)
+
+These executables are standalone and do not require Python installation on the target machine.
+
+這些可執行檔案是獨立的，不需要在目標機器上安裝Python。
 
 ## License / ライセンス / 授權條款
 
@@ -256,7 +331,18 @@ dash_pdf/
 
 ## Version History / バージョン履歴 / 版本歷史
 
-### v3.0.0 (Latest / 最新 / 最新版本)
+### v4.0.0 (Latest / 最新 / 最新版本) - Complete PDF Solution
+- ✨ **NEW**: PDF splitting functionality with multiple split modes
+- ✨ **NEW**: PDF compression with three compression levels
+- ✨ **NEW**: Comprehensive error logging system
+- ✨ **NEW**: Enhanced 2x2 button layout for all four main functions
+- ✨ **NEW**: Advanced compression options (image optimization, object removal)
+- 🔧 **IMPROVED**: Better coordinate system for accurate signature positioning
+- 🔧 **IMPROVED**: Enhanced user interface with progress indicators
+- 🔧 **IMPROVED**: Robust error handling and user feedback
+- 🔧 **IMPROVED**: Cross-platform compatibility for PyMuPDF versions
+
+### v3.0.0 - Digital Signature & Text Edition
 - ✨ **NEW**: Digital signature support with handwritten and uploaded signatures
 - ✨ **NEW**: Text insertion with customizable fonts, sizes, and colors
 - ✨ **NEW**: Interactive editing - drag, resize, and position elements
@@ -272,4 +358,4 @@ dash_pdf/
 - ✨ Page reordering capabilities
 - ✨ Real-time preview
 
-Current version / 現在のバージョン / 目前版本: **v3.0.0**
+Current version / 現在のバージョン / 目前版本: **v4.0.0**

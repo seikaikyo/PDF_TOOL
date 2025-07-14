@@ -4,9 +4,22 @@ from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import TkinterDnD, DND_FILES
 import fitz  # PyMuPDF
 from PIL import Image, ImageTk, ImageDraw
-from pyfiglet import figlet_format
+try:
+    from pyfiglet import figlet_format
+    PYFIGLET_AVAILABLE = True
+except ImportError:
+    PYFIGLET_AVAILABLE = False
+    def figlet_format(text, font=None):
+        # 後備方案：使用簡單的ASCII藝術
+        return f"""
+    ┌─────────────────────────────────────┐
+    │           {text}           │
+    └─────────────────────────────────────┘
+        """
 from datetime import datetime
 import threading
+import traceback
+import logging
 
 
 class TextInsertDialog(tk.Toplevel):
@@ -125,10 +138,490 @@ class TextInsertDialog(tk.Toplevel):
         self.destroy()
 
 
+class PDFSplitDialog(tk.Toplevel):
+    """PDF拆分對話框"""
+    
+    def __init__(self, parent, pdf_path, colors):
+        super().__init__(parent)
+        self.parent = parent
+        self.pdf_path = pdf_path
+        self.colors = colors
+        self.pdf_doc = None
+        # 獲取主應用程式的錯誤日誌方法
+        self.main_app = None
+        widget = parent
+        while widget and not hasattr(widget, '_log_error'):
+            widget = widget.master
+        self.main_app = widget
+        
+        if self._load_pdf():
+            self._setup_dialog()
+        
+    def _load_pdf(self):
+        """載入PDF文件"""
+        try:
+            self.pdf_doc = fitz.open(self.pdf_path)
+            self.total_pages = len(self.pdf_doc)
+            return True
+        except Exception as e:
+            messagebox.showerror("錯誤", f"無法載入PDF檔案：{str(e)}")
+            self.total_pages = 0
+            if hasattr(self, 'pdf_doc') and self.pdf_doc:
+                self.pdf_doc.close()
+            self.destroy()
+            return False
+            
+    def _setup_dialog(self):
+        """設置對話框"""
+        self.title("PDF 拆分工具")
+        self.geometry("500x400")
+        self.resizable(False, False)
+        self.configure(bg=self.colors['bg_main'])
+        
+        # 置中顯示
+        self.transient(self.parent)
+        self.grab_set()
+        
+        # 主框架
+        main_frame = tk.Frame(self, bg=self.colors['bg_main'], padx=20, pady=20)
+        main_frame.pack(fill="both", expand=True)
+        
+        # 標題資訊
+        info_frame = tk.Frame(main_frame, bg=self.colors['bg_main'])
+        info_frame.pack(fill="x", pady=(0, 20))
+        
+        tk.Label(info_frame, text=f"檔案：{os.path.basename(self.pdf_path)}", 
+                bg=self.colors['bg_main'], fg="black", 
+                font=("Microsoft YaHei", 10, "bold")).pack(anchor="w")
+        
+        tk.Label(info_frame, text=f"總頁數：{self.total_pages} 頁", 
+                bg=self.colors['bg_main'], fg="black", 
+                font=("Microsoft YaHei", 10)).pack(anchor="w")
+        
+        # 拆分選項
+        options_frame = tk.LabelFrame(main_frame, text="拆分選項", 
+                                     bg=self.colors['bg_main'], fg="black",
+                                     font=("Microsoft YaHei", 10, "bold"))
+        options_frame.pack(fill="x", pady=(0, 20))
+        
+        self.split_type = tk.StringVar(value="pages")
+        
+        # 按頁數拆分
+        pages_frame = tk.Frame(options_frame, bg=self.colors['bg_main'])
+        pages_frame.pack(fill="x", padx=10, pady=5)
+        
+        tk.Radiobutton(pages_frame, text="按頁數拆分：每", variable=self.split_type,
+                      value="pages", bg=self.colors['bg_main'], fg="black").pack(side="left")
+        
+        self.pages_per_file = tk.StringVar(value="1")
+        pages_entry = tk.Entry(pages_frame, textvariable=self.pages_per_file, width=5)
+        pages_entry.pack(side="left", padx=5)
+        
+        tk.Label(pages_frame, text="頁為一個檔案", bg=self.colors['bg_main'], 
+                fg="black").pack(side="left")
+        
+        # 按範圍拆分
+        range_frame = tk.Frame(options_frame, bg=self.colors['bg_main'])
+        range_frame.pack(fill="x", padx=10, pady=5)
+        
+        tk.Radiobutton(range_frame, text="按範圍拆分：", variable=self.split_type,
+                      value="range", bg=self.colors['bg_main'], fg="black").pack(side="left")
+        
+        tk.Label(range_frame, text="從第", bg=self.colors['bg_main'], 
+                fg="black").pack(side="left", padx=(10, 5))
+        
+        self.start_page = tk.StringVar(value="1")
+        start_entry = tk.Entry(range_frame, textvariable=self.start_page, width=5)
+        start_entry.pack(side="left")
+        
+        tk.Label(range_frame, text="頁到第", bg=self.colors['bg_main'], 
+                fg="black").pack(side="left", padx=5)
+        
+        self.end_page = tk.StringVar(value=str(self.total_pages))
+        end_entry = tk.Entry(range_frame, textvariable=self.end_page, width=5)
+        end_entry.pack(side="left")
+        
+        tk.Label(range_frame, text="頁", bg=self.colors['bg_main'], 
+                fg="black").pack(side="left", padx=(5, 0))
+        
+        # 單頁提取
+        single_frame = tk.Frame(options_frame, bg=self.colors['bg_main'])
+        single_frame.pack(fill="x", padx=10, pady=5)
+        
+        tk.Radiobutton(single_frame, text="提取單頁：第", variable=self.split_type,
+                      value="single", bg=self.colors['bg_main'], fg="black").pack(side="left")
+        
+        self.single_page = tk.StringVar(value="1")
+        single_entry = tk.Entry(single_frame, textvariable=self.single_page, width=5)
+        single_entry.pack(side="left", padx=5)
+        
+        tk.Label(single_frame, text="頁", bg=self.colors['bg_main'], 
+                fg="black").pack(side="left")
+        
+        # 按鈕區域
+        btn_frame = tk.Frame(main_frame, bg=self.colors['bg_main'])
+        btn_frame.pack(fill="x", pady=(20, 0))
+        
+        tk.Button(btn_frame, text="開始拆分", command=self._start_split,
+                 bg=self.colors['success'], fg="white",
+                 font=("Microsoft YaHei", 10, "bold"),
+                 width=12).pack(side="right", padx=(5, 0))
+        
+        tk.Button(btn_frame, text="取消", command=self.destroy,
+                 bg=self.colors['danger'], fg="white", 
+                 font=("Microsoft YaHei", 10, "bold"),
+                 width=12).pack(side="right")
+    
+    def _start_split(self):
+        """開始拆分PDF"""
+        try:
+            split_type = self.split_type.get()
+            
+            # 選擇輸出目錄
+            output_dir = filedialog.askdirectory(title="選擇拆分檔案的儲存目錄")
+            if not output_dir:
+                return
+            
+            base_name = os.path.splitext(os.path.basename(self.pdf_path))[0]
+            success_count = 0
+            
+            if split_type == "pages":
+                # 按頁數拆分
+                pages_per_file = int(self.pages_per_file.get())
+                if pages_per_file <= 0:
+                    messagebox.showerror("錯誤", "每個檔案的頁數必須大於0")
+                    return
+                
+                current_page = 0
+                file_index = 1
+                
+                while current_page < self.total_pages:
+                    end_page = min(current_page + pages_per_file - 1, self.total_pages - 1)
+                    
+                    output_path = os.path.join(output_dir, f"{base_name}_part{file_index}.pdf")
+                    new_doc = fitz.open()
+                    
+                    for page_num in range(current_page, end_page + 1):
+                        new_doc.insert_pdf(self.pdf_doc, from_page=page_num, to_page=page_num)
+                    
+                    new_doc.save(output_path)
+                    new_doc.close()
+                    
+                    success_count += 1
+                    current_page = end_page + 1
+                    file_index += 1
+            
+            elif split_type == "range":
+                # 按範圍拆分
+                start = int(self.start_page.get()) - 1  # 轉為0-based索引
+                end = int(self.end_page.get()) - 1
+                
+                if start < 0 or end >= self.total_pages or start > end:
+                    messagebox.showerror("錯誤", f"頁面範圍無效，請輸入1到{self.total_pages}之間的頁數")
+                    return
+                
+                output_path = os.path.join(output_dir, f"{base_name}_pages{start+1}-{end+1}.pdf")
+                new_doc = fitz.open()
+                
+                for page_num in range(start, end + 1):
+                    new_doc.insert_pdf(self.pdf_doc, from_page=page_num, to_page=page_num)
+                
+                new_doc.save(output_path)
+                new_doc.close()
+                success_count = 1
+            
+            elif split_type == "single":
+                # 提取單頁
+                page_num = int(self.single_page.get()) - 1  # 轉為0-based索引
+                
+                if page_num < 0 or page_num >= self.total_pages:
+                    messagebox.showerror("錯誤", f"頁數無效，請輸入1到{self.total_pages}之間的數字")
+                    return
+                
+                output_path = os.path.join(output_dir, f"{base_name}_page{page_num+1}.pdf")
+                new_doc = fitz.open()
+                new_doc.insert_pdf(self.pdf_doc, from_page=page_num, to_page=page_num)
+                new_doc.save(output_path)
+                new_doc.close()
+                success_count = 1
+            
+            messagebox.showinfo("完成", f"PDF拆分完成！\n成功創建了 {success_count} 個檔案\n儲存位置：{output_dir}")
+            self.destroy()
+            
+        except ValueError:
+            messagebox.showerror("錯誤", "請輸入有效的數字")
+        except Exception as e:
+            error_msg = f"拆分過程中發生錯誤：{str(e)}"
+            if self.main_app:
+                self.main_app._log_error(error_msg, e, "PDF拆分處理")
+            messagebox.showerror("錯誤", error_msg)
+    
+    def destroy(self):
+        """關閉對話框時清理資源"""
+        if self.pdf_doc:
+            self.pdf_doc.close()
+        super().destroy()
+
+
+class PDFCompressDialog(tk.Toplevel):
+    """PDF壓縮對話框"""
+    
+    def __init__(self, parent, pdf_path, colors):
+        super().__init__(parent)
+        self.parent = parent
+        self.pdf_path = pdf_path
+        self.colors = colors
+        self.pdf_doc = None
+        # 獲取主應用程式的錯誤日誌方法
+        self.main_app = None
+        widget = parent
+        while widget and not hasattr(widget, '_log_error'):
+            widget = widget.master
+        self.main_app = widget
+        
+        if self._load_pdf():
+            self._setup_dialog()
+        
+    def _load_pdf(self):
+        """載入PDF文件"""
+        try:
+            self.pdf_doc = fitz.open(self.pdf_path)
+            self.total_pages = len(self.pdf_doc)
+            self.original_size = os.path.getsize(self.pdf_path)
+            return True
+        except Exception as e:
+            messagebox.showerror("錯誤", f"無法載入PDF檔案：{str(e)}")
+            self.total_pages = 0
+            self.original_size = 0
+            if hasattr(self, 'pdf_doc') and self.pdf_doc:
+                self.pdf_doc.close()
+            self.destroy()
+            return False
+            
+    def _setup_dialog(self):
+        """設置對話框"""
+        self.title("PDF 壓縮工具")
+        self.geometry("500x550")
+        self.resizable(False, False)
+        self.configure(bg=self.colors['bg_main'])
+        
+        # 置中顯示
+        self.transient(self.parent)
+        self.grab_set()
+        
+        # 主框架
+        main_frame = tk.Frame(self, bg=self.colors['bg_main'], padx=20, pady=20)
+        main_frame.pack(fill="both", expand=True)
+        
+        # 檔案資訊
+        info_frame = tk.Frame(main_frame, bg=self.colors['bg_main'])
+        info_frame.pack(fill="x", pady=(0, 20))
+        
+        tk.Label(info_frame, text=f"檔案：{os.path.basename(self.pdf_path)}", 
+                bg=self.colors['bg_main'], fg="black", 
+                font=("Microsoft YaHei", 10, "bold")).pack(anchor="w")
+        
+        tk.Label(info_frame, text=f"總頁數：{self.total_pages} 頁", 
+                bg=self.colors['bg_main'], fg="black", 
+                font=("Microsoft YaHei", 10)).pack(anchor="w")
+        
+        size_mb = self.original_size / (1024 * 1024)
+        tk.Label(info_frame, text=f"原始大小：{size_mb:.2f} MB", 
+                bg=self.colors['bg_main'], fg="black", 
+                font=("Microsoft YaHei", 10)).pack(anchor="w")
+        
+        # 壓縮選項
+        options_frame = tk.LabelFrame(main_frame, text="壓縮選項", 
+                                     bg=self.colors['bg_main'], fg="black",
+                                     font=("Microsoft YaHei", 10, "bold"))
+        options_frame.pack(fill="x", pady=(0, 20))
+        
+        # 壓縮級別
+        level_frame = tk.Frame(options_frame, bg=self.colors['bg_main'])
+        level_frame.pack(fill="x", padx=10, pady=10)
+        
+        tk.Label(level_frame, text="壓縮級別：", bg=self.colors['bg_main'], 
+                fg="black", font=("Microsoft YaHei", 10)).pack(anchor="w")
+        
+        self.compress_level = tk.StringVar(value="medium")
+        
+        levels = [
+            ("輕度壓縮（保持高品質）", "light"),
+            ("中度壓縮（平衡品質與大小）", "medium"),
+            ("高度壓縮（最小檔案大小）", "heavy")
+        ]
+        
+        for text, value in levels:
+            tk.Radiobutton(level_frame, text=text, variable=self.compress_level,
+                          value=value, bg=self.colors['bg_main'], fg="black").pack(anchor="w", pady=2)
+        
+        # 壓縮選項
+        compress_options_frame = tk.Frame(options_frame, bg=self.colors['bg_main'])
+        compress_options_frame.pack(fill="x", padx=10, pady=10)
+        
+        tk.Label(compress_options_frame, text="壓縮選項：", bg=self.colors['bg_main'], 
+                fg="black", font=("Microsoft YaHei", 10)).pack(anchor="w")
+        
+        self.compress_images = tk.BooleanVar(value=True)
+        tk.Checkbutton(compress_options_frame, text="壓縮圖片", variable=self.compress_images,
+                      bg=self.colors['bg_main'], fg="black").pack(anchor="w", pady=2)
+        
+        self.remove_objects = tk.BooleanVar(value=True)
+        tk.Checkbutton(compress_options_frame, text="移除不必要物件", variable=self.remove_objects,
+                      bg=self.colors['bg_main'], fg="black").pack(anchor="w", pady=2)
+        
+        self.optimize_fonts = tk.BooleanVar(value=True)
+        tk.Checkbutton(compress_options_frame, text="優化字體", variable=self.optimize_fonts,
+                      bg=self.colors['bg_main'], fg="black").pack(anchor="w", pady=2)
+        
+        # 按鈕區域（固定在底部）
+        btn_frame = tk.Frame(main_frame, bg=self.colors['bg_main'])
+        btn_frame.pack(side="bottom", fill="x", pady=(20, 0))
+        
+        # 進度顯示（在按鈕上方）
+        self.progress_frame = tk.Frame(main_frame, bg=self.colors['bg_main'])
+        self.progress_frame.pack(side="bottom", fill="x", pady=(10, 0))
+        
+        self.progress_label = tk.Label(self.progress_frame, text="", 
+                                      bg=self.colors['bg_main'], fg="black")
+        self.progress_label.pack(pady=5)
+        
+        tk.Button(btn_frame, text="開始壓縮", command=self._start_compress,
+                 bg=self.colors['success'], fg="white",
+                 font=("Microsoft YaHei", 10, "bold"),
+                 width=12).pack(side="right", padx=(5, 0))
+        
+        tk.Button(btn_frame, text="取消", command=self.destroy,
+                 bg=self.colors['danger'], fg="white", 
+                 font=("Microsoft YaHei", 10, "bold"),
+                 width=12).pack(side="right")
+    
+    def _start_compress(self):
+        """開始壓縮PDF"""
+        try:
+            # 選擇輸出檔案
+            base_name = os.path.splitext(os.path.basename(self.pdf_path))[0]
+            output_path = filedialog.asksaveasfilename(
+                title="儲存壓縮後的PDF",
+                defaultextension=".pdf",
+                filetypes=[("PDF 檔案", "*.pdf")],
+                initialfile=f"{base_name}_compressed.pdf"
+            )
+            
+            if not output_path:
+                return
+            
+            # 顯示進度
+            self.progress_label.config(text="正在壓縮PDF，請稍候...")
+            self.update()
+            
+            # 執行壓縮
+            success = self._compress_pdf(output_path)
+            
+            if success:
+                # 計算壓縮後大小
+                new_size = os.path.getsize(output_path)
+                new_size_mb = new_size / (1024 * 1024)
+                original_size_mb = self.original_size / (1024 * 1024)
+                reduction = ((self.original_size - new_size) / self.original_size) * 100
+                
+                result_msg = f"""PDF壓縮完成！
+
+原始大小：{original_size_mb:.2f} MB
+壓縮後大小：{new_size_mb:.2f} MB
+節省空間：{reduction:.1f}%
+
+儲存位置：{output_path}"""
+                
+                messagebox.showinfo("完成", result_msg)
+                self.destroy()
+            
+        except Exception as e:
+            error_msg = f"壓縮過程中發生錯誤：{str(e)}"
+            if self.main_app:
+                self.main_app._log_error(error_msg, e, "PDF壓縮處理")
+            messagebox.showerror("錯誤", error_msg)
+            self.progress_label.config(text="")
+    
+    def _compress_pdf(self, output_path):
+        """執行PDF壓縮"""
+        try:
+            level = self.compress_level.get()
+            
+            # 根據壓縮級別設定參數
+            if level == "light":
+                compression_matrix = fitz.Matrix(0.9, 0.9)  # 輕度壓縮
+                garbage_level = 1
+            elif level == "medium":
+                compression_matrix = fitz.Matrix(0.7, 0.7)  # 中度壓縮
+                garbage_level = 2
+            else:  # heavy
+                compression_matrix = fitz.Matrix(0.5, 0.5)  # 高度壓縮
+                garbage_level = 4
+            
+            # 創建新的PDF文件
+            new_doc = fitz.open()
+            
+            # 逐頁處理
+            for page_num in range(self.total_pages):
+                self.progress_label.config(text=f"正在處理第 {page_num + 1} / {self.total_pages} 頁...")
+                self.update()
+                
+                page = self.pdf_doc[page_num]
+                
+                # 如果需要壓縮圖片，重新處理頁面
+                if self.compress_images.get():
+                    # 獲取頁面作為圖片，使用壓縮矩陣
+                    pix = page.get_pixmap(matrix=compression_matrix)
+                    img_data = pix.tobytes("jpeg", jpg_quality=70)  # 使用JPEG壓縮
+                    
+                    # 創建新頁面
+                    new_page = new_doc.new_page(width=page.rect.width, height=page.rect.height)
+                    new_page.insert_image(page.rect, stream=img_data)
+                else:
+                    # 直接複製頁面
+                    new_doc.insert_pdf(self.pdf_doc, from_page=page_num, to_page=page_num)
+            
+            # 設定儲存參數（使用通用參數）
+            save_options = {
+                "deflate": True,
+                "garbage": garbage_level if self.remove_objects.get() else 0,
+                "clean": self.remove_objects.get()
+            }
+            
+            # 儲存壓縮後的PDF
+            try:
+                new_doc.save(output_path, **save_options)
+            except Exception as save_error:
+                # 如果參數不支援，使用最簡單的保存方式
+                self.progress_label.config(text="使用基本壓縮模式...")
+                self.update()
+                new_doc.save(output_path)
+            
+            new_doc.close()
+            
+            return True
+            
+        except Exception as e:
+            error_msg = f"壓縮失敗：{str(e)}"
+            if self.main_app:
+                self.main_app._log_error(error_msg, e, "PDF壓縮核心處理")
+            raise Exception(error_msg)
+    
+    def destroy(self):
+        """關閉對話框時清理資源"""
+        if self.pdf_doc:
+            self.pdf_doc.close()
+        super().destroy()
+
+
 class PDFToolkit:
-    """PDF 合併工具 - 專注於 PDF 檔案合併功能"""
+    """PDF 工具包 - 提供PDF合併、簽名、拆分、壓縮等全方位功能"""
 
     def __init__(self):
+        # 設置錯誤日誌
+        self._setup_error_logging()
+        
         # 色系配置
         self.colors = {
             'bg_main': '#F8F9FA',
@@ -147,7 +640,7 @@ class PDFToolkit:
 
         # 初始化主視窗
         self.root = TkinterDnD.Tk()
-        self.root.title("PDF 合併工具")
+        self.root.title("PDF 工具包 - 合併、簽名、拆分、壓縮")
         self.root.geometry("1400x900")
         self.root.minsize(1200, 800)
         self.root.configure(bg=self.colors['bg_main'])
@@ -164,6 +657,73 @@ class PDFToolkit:
         self._setup_ui()
         self._setup_drag_drop()
         self._setup_responsive()
+
+    def _setup_error_logging(self):
+        """設置錯誤日誌系統"""
+        try:
+            # 創建logs目錄
+            log_dir = "logs"
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+            
+            # 設置日誌檔案名稱（包含日期）
+            today = datetime.now().strftime("%Y%m%d")
+            log_file = os.path.join(log_dir, f"pdf_toolkit_error_{today}.log")
+            
+            # 創建專用的錯誤日誌handler
+            error_handler = logging.FileHandler(log_file, encoding='utf-8')
+            error_handler.setLevel(logging.ERROR)
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+            error_handler.setFormatter(formatter)
+            
+            self.error_logger = logging.getLogger('PDFToolkit')
+            self.error_logger.addHandler(error_handler)
+            self.error_logger.setLevel(logging.ERROR)
+            self.log_file_path = log_file
+            
+        except Exception as e:
+            # 如果日誌設置失敗，使用控制台輸出
+            print(f"日誌設置失敗：{e}")
+            self.error_logger = None
+            self.log_file_path = None
+
+    def _log_error(self, error_message, exception=None, context=""):
+        """記錄錯誤到日誌檔案"""
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # 構建錯誤訊息
+            log_message = f"[{timestamp}] 錯誤: {error_message}"
+            if context:
+                log_message += f" | 上下文: {context}"
+            
+            # 如果有例外物件，添加詳細信息
+            if exception:
+                log_message += f" | 例外類型: {type(exception).__name__}"
+                log_message += f" | 例外訊息: {str(exception)}"
+                
+                # 添加堆疊追蹤
+                tb_str = traceback.format_exc()
+                log_message += f" | 堆疊追蹤:\n{tb_str}"
+            
+            # 直接寫入檔案（更可靠的方法）
+            if self.log_file_path:
+                try:
+                    with open(self.log_file_path, 'a', encoding='utf-8') as f:
+                        f.write(log_message + "\n\n")
+                        f.flush()
+                except Exception as file_error:
+                    print(f"無法寫入日誌檔案：{file_error}")
+            
+            # 使用logging系統（作為備份）
+            if self.error_logger:
+                self.error_logger.error(log_message)
+            
+            # 同時輸出到應用程式日誌
+            self._log_message(f"錯誤已記錄到: {self.log_file_path}", "warning")
+            
+        except Exception as log_error:
+            print(f"無法寫入錯誤日誌：{log_error}")
 
     def _setup_responsive(self):
         """設定響應式佈局"""
@@ -227,7 +787,10 @@ class PDFToolkit:
         content_frame.pack(expand=True)
 
         # ASCII 標題（置中）
-        title_text = figlet_format("PDF TOOLKIT", font="slant")
+        if PYFIGLET_AVAILABLE:
+            title_text = figlet_format("PDF TOOLKIT", font="slant")
+        else:
+            title_text = figlet_format("PDF TOOLKIT")
         title_label = tk.Label(content_frame,
                                text=title_text,
                                bg=self.colors['bg_panel'],
@@ -238,7 +801,7 @@ class PDFToolkit:
 
         # 副標題（置中）
         subtitle_label = tk.Label(content_frame,
-                                  text="專業 PDF 合併工具 - 快速合併多個 PDF 檔案",
+                                  text="專業 PDF 工具包 - 合併、簽名、拆分、壓縮一站式解決方案",
                                   bg=self.colors['bg_panel'],
                                   fg=self.colors['fg_secondary'],
                                   font=("Microsoft YaHei", 12, "bold"))
@@ -277,7 +840,9 @@ class PDFToolkit:
 
         operation_steps = [
             "【合併模式】1. 載入多個 PDF → 2. 調整頁面順序 → 3. 點擊「合併 PDF」→ 4. 選擇儲存位置",
-            "【簽名模式】1. 載入 PDF 檔案 → 2. 點擊「PDF 簽名」→ 3. 手寫或上傳簽名 → 4. 拖曳調整位置與大小 → 5. 儲存"
+            "【簽名模式】1. 載入 PDF 檔案 → 2. 點擊「PDF 簽名」→ 3. 手寫或上傳簽名/插入文字 → 4. 拖曳調整位置與大小 → 5. 儲存",
+            "【拆分模式】1. 載入 PDF 檔案 → 2. 點擊「拆分 PDF」→ 3. 選擇拆分方式 → 4. 設定參數 → 5. 選擇儲存目錄",
+            "【壓縮模式】1. 載入 PDF 檔案 → 2. 點擊「壓縮 PDF」→ 3. 選擇壓縮級別 → 4. 設定選項 → 5. 儲存壓縮檔案"
         ]
 
         for step in operation_steps:
@@ -480,17 +1045,19 @@ class PDFToolkit:
                  fg=self.colors['info'],
                  font=("Microsoft YaHei", 12, "bold")).pack(anchor="w")
 
-        tk.Label(desc_frame,
-                 text="✓ 合併多個 PDF 檔案",
-                 bg=self.colors['bg_panel'],
-                 fg=self.colors['fg_secondary'],
-                 font=("Microsoft YaHei", 10)).pack(anchor="w", pady=(5, 1))
-
-        tk.Label(desc_frame,
-                 text="✓ PDF 電子簽名（手寫 + 上傳圖片）",
-                 bg=self.colors['bg_panel'],
-                 fg=self.colors['fg_secondary'],
-                 font=("Microsoft YaHei", 10)).pack(anchor="w", pady=1)
+        features = [
+            "✓ 合併多個 PDF 檔案",
+            "✓ PDF 電子簽名（手寫 + 上傳圖片 + 文字插入）",
+            "✓ PDF 拆分（按頁數、範圍、單頁提取）",
+            "✓ PDF 壓縮（多級別壓縮選項）"
+        ]
+        
+        for feature in features:
+            tk.Label(desc_frame,
+                     text=feature,
+                     bg=self.colors['bg_panel'],
+                     fg=self.colors['fg_secondary'],
+                     font=("Microsoft YaHei", 10)).pack(anchor="w", pady=1)
 
         # 支援格式
         format_frame = tk.Frame(info_frame, bg=self.colors['bg_panel'])
@@ -511,29 +1078,57 @@ class PDFToolkit:
                                      font=("Microsoft YaHei", 11, "bold"))
         action_frame.pack(fill="x", pady=(0, 10))
 
-        # 按鈕容器（左右並排）
+        # 按鈕容器（2x2網格佈局）
         button_container = tk.Frame(action_frame, bg=self.colors['bg_main'])
         button_container.pack(fill="x", padx=10, pady=(15, 5))
         
-        # 合併按鈕（左側）
-        self.merge_btn = tk.Button(button_container,
+        # 第一行按鈕
+        first_row = tk.Frame(button_container, bg=self.colors['bg_main'])
+        first_row.pack(fill="x", pady=(0, 5))
+        
+        # 合併按鈕
+        self.merge_btn = tk.Button(first_row,
                                    text="合併 PDF",
                                    command=self._merge_pdfs,
                                    bg=self.colors['success'],
                                    fg="white",
-                                   font=("Microsoft YaHei", 12, "bold"),
+                                   font=("Microsoft YaHei", 11, "bold"),
                                    height=2)
         self.merge_btn.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
-        # 簽名按鈕（右側）
-        self.sign_btn = tk.Button(button_container,
+        # 簽名按鈕
+        self.sign_btn = tk.Button(first_row,
                                   text="PDF 簽名",
                                   command=self._open_signature_editor,
                                   bg=self.colors['info'],
                                   fg="white",
-                                  font=("Microsoft YaHei", 12, "bold"),
+                                  font=("Microsoft YaHei", 11, "bold"),
                                   height=2)
         self.sign_btn.pack(side="right", fill="both", expand=True, padx=(5, 0))
+        
+        # 第二行按鈕
+        second_row = tk.Frame(button_container, bg=self.colors['bg_main'])
+        second_row.pack(fill="x")
+        
+        # 拆分按鈕
+        self.split_btn = tk.Button(second_row,
+                                   text="拆分 PDF",
+                                   command=self._split_pdf,
+                                   bg=self.colors['warning'],
+                                   fg="white",
+                                   font=("Microsoft YaHei", 11, "bold"),
+                                   height=2)
+        self.split_btn.pack(side="left", fill="both", expand=True, padx=(0, 5))
+
+        # 壓縮按鈕
+        self.compress_btn = tk.Button(second_row,
+                                      text="壓縮 PDF",
+                                      command=self._compress_pdf,
+                                      bg=self.colors['danger'],
+                                      fg="white",
+                                      font=("Microsoft YaHei", 11, "bold"),
+                                      height=2)
+        self.compress_btn.pack(side="right", fill="both", expand=True, padx=(5, 0))
 
     def _create_progress_section(self, parent):
         """建立進度顯示區域"""
@@ -599,7 +1194,7 @@ class PDFToolkit:
 
         # 版權資訊
         tk.Label(status_frame,
-                 text="© 2025 PDF 合併工具 | 作者：",
+                 text="© 2025 PDF 工具包 | 作者：",
                  bg=self.colors['bg_panel'],
                  fg=self.colors['fg_secondary'],
                  font=("Microsoft YaHei", 9)).pack(side="left", padx=10)
@@ -1096,6 +1691,48 @@ class PDFToolkit:
         if result:
             self._open_signature_editor()
 
+    def _split_pdf(self):
+        """PDF拆分功能"""
+        if not self.pdf_files:
+            messagebox.showwarning("警告", "請先選擇PDF檔案")
+            return
+        
+        if len(self.pdf_files) > 1:
+            messagebox.showinfo("提示", "拆分功能只能處理單一PDF檔案，將使用第一個檔案")
+        
+        pdf_path = self.pdf_files[0]['path']
+        try:
+            split_dialog = PDFSplitDialog(self.root, pdf_path, self.colors)
+            # 檢查對話框是否成功創建
+            if split_dialog.winfo_exists():
+                self.root.wait_window(split_dialog)
+        except Exception as e:
+            error_msg = f"開啟PDF拆分功能失敗：{str(e)}"
+            self._log_error(error_msg, e, "PDF拆分功能")
+            self._log_message(error_msg, "error")
+            messagebox.showerror("錯誤", error_msg)
+
+    def _compress_pdf(self):
+        """PDF壓縮功能"""
+        if not self.pdf_files:
+            messagebox.showwarning("警告", "請先選擇PDF檔案")
+            return
+            
+        if len(self.pdf_files) > 1:
+            messagebox.showinfo("提示", "壓縮功能只能處理單一PDF檔案，將使用第一個檔案")
+        
+        pdf_path = self.pdf_files[0]['path']
+        try:
+            compress_dialog = PDFCompressDialog(self.root, pdf_path, self.colors)
+            # 檢查對話框是否成功創建
+            if compress_dialog.winfo_exists():
+                self.root.wait_window(compress_dialog)
+        except Exception as e:
+            error_msg = f"開啟PDF壓縮功能失敗：{str(e)}"
+            self._log_error(error_msg, e, "PDF壓縮功能")
+            self._log_message(error_msg, "error")
+            messagebox.showerror("錯誤", error_msg)
+
     def _log_message(self, message, level="info"):
         """記錄日誌訊息"""
         timestamp = datetime.now().strftime("[%H:%M:%S]")
@@ -1122,7 +1759,11 @@ class PDFToolkit:
 
     def run(self):
         """啟動應用程式"""
-        self._log_message("PDF 合併工具已啟動", "success")
+        self._log_message("PDF 工具包已啟動", "success")
+        if self.log_file_path:
+            self._log_message(f"錯誤日誌檔案：{self.log_file_path}", "info")
+        else:
+            self._log_message("錯誤日誌系統未啟用", "warning")
         self.root.mainloop()
 
 
