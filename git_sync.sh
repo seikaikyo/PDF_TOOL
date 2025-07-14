@@ -106,7 +106,132 @@ rename_master_to_main() {
     fi
 }
 
-# 檢查並載入模組
+# 檢查分支是否有提交記錄
+check_branch_has_commits() {
+    local branch_name="$1"
+
+    # 檢查分支是否存在且有提交
+    if git rev-parse --verify "$branch_name" >/dev/null 2>&1; then
+        # 檢查是否有提交記錄
+        local commit_count=$(git rev-list --count "$branch_name" 2>/dev/null || echo "0")
+        if [ "$commit_count" -gt 0 ]; then
+            debug_log "分支 $branch_name 有 $commit_count 個提交"
+            return 0
+        else
+            debug_log "分支 $branch_name 存在但沒有提交記錄"
+            return 1
+        fi
+    else
+        debug_log "分支 $branch_name 不存在"
+        return 1
+    fi
+}
+
+# 檢查倉庫狀態並建議操作
+check_repository_status() {
+    local current_branch=$(git branch --show-current)
+
+    echo -e "${BLUE}檢查倉庫狀態...${NC}"
+
+    # 檢查是否有未追蹤的檔案
+    local untracked_files=$(git ls-files --others --exclude-standard)
+    local modified_files=$(git diff --name-only)
+    local staged_files=$(git diff --cached --name-only)
+
+    if [ ! -z "$untracked_files" ]; then
+        echo -e "${YELLOW}發現未追蹤的檔案：${NC}"
+        echo "$untracked_files" | head -5 | while read file; do
+            echo -e "  ${CYAN}+ $file${NC}"
+        done
+        local total_untracked=$(echo "$untracked_files" | wc -l)
+        if [ "$total_untracked" -gt 5 ]; then
+            echo -e "  ${BLUE}... 以及其他 $((total_untracked - 5)) 個檔案${NC}"
+        fi
+        echo ""
+    fi
+
+    if [ ! -z "$modified_files" ]; then
+        echo -e "${YELLOW}發現已修改的檔案：${NC}"
+        echo "$modified_files" | head -5 | while read file; do
+            echo -e "  ${YELLOW}M $file${NC}"
+        done
+        echo ""
+    fi
+
+    if [ ! -z "$staged_files" ]; then
+        echo -e "${GREEN}發現已暫存的檔案：${NC}"
+        echo "$staged_files" | head -5 | while read file; do
+            echo -e "  ${GREEN}A $file${NC}"
+        done
+        echo ""
+    fi
+
+    # 檢查是否需要初始提交
+    if ! check_branch_has_commits "$current_branch"; then
+        echo -e "${YELLOW}⚠ 當前分支沒有任何提交記錄${NC}"
+
+        if [ ! -z "$untracked_files" ] || [ ! -z "$modified_files" ] || [ ! -z "$staged_files" ]; then
+            echo -e "${BLUE}建議先提交變更：${NC}"
+            echo ""
+            echo "1) 添加所有檔案：${CYAN}git add .${NC}"
+            echo "2) 創建初始提交：${CYAN}git commit -m \"Initial commit\"${NC}"
+            echo "3) 重新執行同步腳本"
+            echo ""
+
+            read -p "是否現在要執行初始提交？(y/n): " do_initial_commit
+
+            if [ "$do_initial_commit" = "y" ] || [ "$do_initial_commit" = "Y" ]; then
+                perform_initial_commit
+                return $?
+            else
+                echo -e "${YELLOW}請手動提交後重新執行腳本${NC}"
+                return 1
+            fi
+        else
+            echo -e "${RED}沒有任何檔案可以提交${NC}"
+            echo -e "${YELLOW}請添加一些檔案後重新執行腳本${NC}"
+            return 1
+        fi
+    fi
+
+    echo -e "${GREEN}✓ 倉庫狀態正常${NC}"
+    return 0
+}
+
+# 執行初始提交
+perform_initial_commit() {
+    echo -e "${BLUE}執行初始提交...${NC}"
+
+    # 添加所有檔案
+    echo -e "${YELLOW}添加所有檔案到暫存區...${NC}"
+    git add .
+
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}✗ 添加檔案失敗${NC}"
+        return 1
+    fi
+
+    # 檢查是否有檔案被暫存
+    local staged_files=$(git diff --cached --name-only)
+    if [ -z "$staged_files" ]; then
+        echo -e "${RED}✗ 沒有檔案被暫存，可能所有檔案都被 .gitignore 忽略${NC}"
+        return 1
+    fi
+
+    echo -e "${GREEN}✓ 已添加 $(echo "$staged_files" | wc -l) 個檔案${NC}"
+
+    # 創建提交
+    echo -e "${YELLOW}創建初始提交...${NC}"
+    git commit -m "Initial commit: 添加專案檔案"
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ 初始提交成功${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ 提交失敗${NC}"
+        return 1
+    fi
+}
 load_modules() {
     debug_log "開始載入模組..."
 
@@ -167,6 +292,13 @@ handle_single_platform() {
         fi
         echo -e "${PURPLE}=============================================${NC}"
         echo ""
+
+        # 檢查分支是否有提交記錄
+        if ! check_branch_has_commits "$current_branch"; then
+            echo -e "${RED}✗ 分支 '$current_branch' 沒有任何提交記錄${NC}"
+            echo -e "${YELLOW}請先提交一些變更後再執行推送${NC}"
+            return 1
+        fi
 
         # 推送到單個平台
         push_to_single_platform "$existing_remote" "$platform_name" "$current_branch"
@@ -256,6 +388,18 @@ perform_push() {
         current_branch=$(git branch --show-current)
     fi
 
+    # 檢查分支是否有提交記錄
+    if ! check_branch_has_commits "$current_branch"; then
+        echo -e "${RED}✗ 分支 '$current_branch' 沒有任何提交記錄${NC}"
+        echo -e "${YELLOW}請先提交一些變更後再執行推送${NC}"
+        echo ""
+        echo "建議操作："
+        echo "1. git add .                    # 添加所有檔案"
+        echo "2. git commit -m \"初始提交\"    # 創建首次提交"
+        echo "3. 重新執行此腳本"
+        return 1
+    fi
+
     echo -e "${YELLOW}是否現在要推送到兩個倉庫？(y/n)${NC}"
     read push_now
 
@@ -340,7 +484,7 @@ main() {
     debug_log "主函數開始執行"
 
     echo -e "${CYAN}==================== Git 同步工具 ====================${NC}"
-    echo -e "${YELLOW}版本：2.2（新增分支檢查功能）${NC}"
+    echo -e "${YELLOW}版本：2.2.1（修正推送錯誤問題）${NC}"
     echo ""
 
     # 載入模組
@@ -371,6 +515,15 @@ main() {
         echo -e "${RED}遠端配置失敗${NC}"
         exit 1
     fi
+
+    # 檢查倉庫狀態
+    echo -e "${PURPLE}================== 倉庫狀態檢查 ==================${NC}"
+    if ! check_repository_status; then
+        echo -e "${YELLOW}請處理倉庫狀態後重新執行腳本${NC}"
+        exit 1
+    fi
+    echo -e "${PURPLE}===============================================${NC}"
+    echo ""
 
     # 獲取配置結果
     local gitlab_remote=$(get_gitlab_remote)
@@ -461,7 +614,10 @@ show_usage() {
     echo "  ./git_sync.sh --debug  # 調試模式"
     echo "  ./git_sync.sh --help   # 顯示說明"
     echo ""
-    echo -e "${YELLOW}新功能（v2.2）：${NC}"
+    echo -e "${YELLOW}新功能（v2.2.1）：${NC}"
+    echo "  - 修正分支沒有提交記錄時的推送錯誤"
+    echo "  - 新增倉庫狀態檢查功能"
+    echo "  - 支援自動執行初始提交"
     echo "  - 自動檢測 master 分支並建議改名為 main"
     echo "  - 設定 main 為全域預設分支"
     echo "  - 符合現代 Git 標準"
@@ -469,12 +625,13 @@ show_usage() {
 
 # 顯示版本資訊
 show_version() {
-    echo "Git 同步工具 v2.2（新增分支檢查功能）"
+    echo "Git 同步工具 v2.2.1（修正推送錯誤問題）"
     echo "作者：AI Assistant"
     echo "支援平台：GitLab, GitHub"
-    echo "新功能：分支名稱現代化、環境變數範本生成、進階安全檢查"
+    echo "新功能：分支名稱現代化、環境變數範本生成、進階安全檢查、倉庫狀態檢查"
     echo ""
     echo "版本歷史："
+    echo "  v2.2.1 - 修正 'src refspec main does not match any' 錯誤"
     echo "  v2.2 - 新增分支檢查與 master→main 遷移功能"
     echo "  v2.1 - 格式化優化、環境變數管理"
     echo "  v2.0 - 模組化重構、擴展安全檢查"
