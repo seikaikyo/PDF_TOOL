@@ -48,6 +48,7 @@ A complete PDF processing solution that combines merging, digital signatures, sp
 - **Error Logging**: Comprehensive error tracking with detailed logs
 - **Progress Feedback**: Real-time progress indicators for all operations
 - **Intuitive Controls**: User-friendly interface suitable for all skill levels
+- **Auto Update Check**: Automatic version checking with smart update notifications
 
 ### Requirements
 - Python 3.7 or higher
@@ -331,7 +332,16 @@ These executables are standalone and do not require Python installation on the t
 
 ## Version History / バージョン履歴 / 版本歷史
 
-### v4.0.0 (Latest / 最新 / 最新版本) - Complete PDF Solution
+### v4.1.0 (Development / 開發中 / 開發中) - Auto Update & Enhancements
+- ✨ **NEW**: Automatic update checking with smart notifications
+- ✨ **NEW**: Manual update check with version comparison
+- ✨ **NEW**: Beautiful update dialog with download integration
+- 🔧 **IMPROVED**: Fixed handwritten signature position accuracy
+- 🔧 **IMPROVED**: Enhanced coordinate system for signature saving
+- 🔧 **IMPROVED**: Better error handling and logging
+- 📝 **DOCS**: Comprehensive update guide and configuration documentation
+
+### v4.0.0 - Complete PDF Solution
 - ✨ **NEW**: PDF splitting functionality with multiple split modes
 - ✨ **NEW**: PDF compression with three compression levels
 - ✨ **NEW**: Comprehensive error logging system
@@ -358,4 +368,4 @@ These executables are standalone and do not require Python installation on the t
 - ✨ Page reordering capabilities
 - ✨ Real-time preview
 
-Current version / 現在のバージョン / 目前版本: **v4.0.0**
+Current version / 現在のバージョン / 目前版本: **v4.1.0**

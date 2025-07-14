@@ -1,0 +1,21 @@
+{
+  "app_name": "PDF Toolkit",
+  "current_version": "4.0.0",
+  "update_check_url": "https://api.github.com/repos/seikaikyo/PDF_TOOL/releases/latest",
+  "download_url": "https://github.com/seikaikyo/PDF_TOOL/releases/latest",
+  "auto_check_enabled": true,
+  "auto_check_interval_days": 7,
+  "show_beta_releases": false,
+  "skipped_versions": [],
+  "last_check_date": "",
+  "instructions": {
+    "how_to_deploy": {
+      "zh": "部署說明：\n1. 將您的PDF Toolkit上傳到GitHub倉庫\n2. 修改上面的update_check_url和download_url為您的實際倉庫地址\n3. 創建Release版本時，確保tag格式為 v4.1.0 這樣的形式\n4. 在Release中描述更新內容，這會顯示在更新對話框中",
+      "en": "Deployment Instructions:\n1. Upload your PDF Toolkit to a GitHub repository\n2. Update the update_check_url and download_url above to your actual repository URLs\n3. When creating releases, ensure tag format is like v4.1.0\n4. Describe update content in Release notes, which will be shown in update dialog"
+    },
+    "api_endpoints": {
+      "github_releases": "https://api.github.com/repos/{owner}/{repo}/releases/latest",
+      "example": "https://api.github.com/repos/microsoft/vscode/releases/latest"
+    }
+  }
+}

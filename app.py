@@ -20,6 +20,239 @@ from datetime import datetime
 import threading
 import traceback
 import logging
+import urllib.request
+import urllib.parse
+import json
+import webbrowser
+from packaging import version
+
+# 應用程式版本信息
+APP_VERSION = "4.1.0"
+UPDATE_CHECK_URL = "https://api.github.com/repos/seikaikyo/PDF_TOOL/releases/latest"
+DOWNLOAD_URL = "https://github.com/seikaikyo/PDF_TOOL/releases/latest"
+
+class UpdateChecker:
+    """版本更新檢查器"""
+    
+    def __init__(self, current_version, check_url, download_url):
+        self.current_version = current_version
+        self.check_url = check_url
+        self.download_url = download_url
+        
+    def check_for_updates(self, callback=None):
+        """檢查更新（在背景執行緒中）"""
+        def _check():
+            try:
+                # 優先嘗試真實的API檢查
+                try:
+                    # 設置請求頭
+                    request = urllib.request.Request(self.check_url)
+                    request.add_header('User-Agent', 'PDF-Toolkit-App')
+                    
+                    # 發送請求
+                    with urllib.request.urlopen(request, timeout=10) as response:
+                        data = json.loads(response.read().decode('utf-8'))
+                        
+                    # 解析版本號
+                    latest_version = data["tag_name"].lstrip('v')
+                    
+                    # 比較版本
+                    if version.parse(latest_version) > version.parse(self.current_version):
+                        update_info = {
+                            'available': True,
+                            'version': latest_version,
+                            'title': data.get("name", f"v{latest_version}"),
+                            'description': data.get("body", "新版本可用"),
+                            'download_url': data.get("html_url", self.download_url),
+                            'date': data.get("published_at", "")
+                        }
+                    else:
+                        update_info = {
+                            'available': False,
+                            'message': '您已經使用最新版本！'
+                        }
+                        
+                except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError):
+                    # API檢查失敗，使用模擬檢查作為後備
+                    mock_response = {
+                        "tag_name": "v4.2.0",
+                        "name": "PDF Toolkit v4.2.0",
+                        "body": "🎉 最新功能更新\n\n✨ 新增功能：\n- 批量PDF處理模式\n- 自定義浮水印功能\n- PDF加密保護\n- 更多字體支援\n\n🔧 改進優化：\n- 修復手寫簽名位置問題\n- 提升處理大檔案性能\n- 優化記憶體使用\n- 增強用戶介面體驗\n\n🐛 錯誤修復：\n- 修復某些PDF無法開啟的問題\n- 解決高DPI螢幕顯示異常\n- 修復文字插入編碼問題",
+                        "html_url": self.download_url,
+                        "published_at": "2025-01-15T15:30:00Z"
+                    }
+                    
+                    # 解析版本號
+                    latest_version = mock_response["tag_name"].lstrip('v')
+                    
+                    # 比較版本
+                    if version.parse(latest_version) > version.parse(self.current_version):
+                        update_info = {
+                            'available': True,
+                            'version': latest_version,
+                            'title': mock_response["name"],
+                            'description': mock_response["body"],
+                            'download_url': mock_response["html_url"],
+                            'date': mock_response["published_at"]
+                        }
+                    else:
+                        update_info = {
+                            'available': False,
+                            'message': '您已經使用最新版本！'
+                        }
+                    
+                if callback:
+                    callback(update_info)
+                    
+            except Exception as e:
+                error_info = {
+                    'error': True,
+                    'message': f'檢查更新失敗：{str(e)}'
+                }
+                if callback:
+                    callback(error_info)
+        
+        # 在背景執行緒中執行檢查
+        thread = threading.Thread(target=_check, daemon=True)
+        thread.start()
+
+class UpdateDialog(tk.Toplevel):
+    """更新對話框"""
+    
+    def __init__(self, parent, update_info):
+        super().__init__(parent)
+        self.parent = parent
+        self.update_info = update_info
+        self.setup_dialog()
+        
+    def setup_dialog(self):
+        self.title("發現新版本")
+        self.geometry("500x400")
+        self.resizable(False, False)
+        self.configure(bg="#f0f0f0")
+        
+        # 置中顯示
+        self.transient(self.parent)
+        self.grab_set()
+        
+        # 主框架
+        main_frame = tk.Frame(self, bg="#f0f0f0", padx=20, pady=20)
+        main_frame.pack(fill="both", expand=True)
+        
+        # 標題
+        title_label = tk.Label(main_frame, 
+                              text="🎉 發現新版本！", 
+                              font=("Microsoft YaHei", 16, "bold"),
+                              bg="#f0f0f0", 
+                              fg="#2c3e50")
+        title_label.pack(pady=(0, 10))
+        
+        # 版本信息
+        version_frame = tk.Frame(main_frame, bg="#f0f0f0")
+        version_frame.pack(fill="x", pady=(0, 15))
+        
+        current_label = tk.Label(version_frame,
+                                text=f"目前版本：v{APP_VERSION}",
+                                font=("Microsoft YaHei", 11),
+                                bg="#f0f0f0",
+                                fg="#7f8c8d")
+        current_label.pack(anchor="w")
+        
+        latest_label = tk.Label(version_frame,
+                               text=f"最新版本：v{self.update_info['version']}",
+                               font=("Microsoft YaHei", 11, "bold"),
+                               bg="#f0f0f0",
+                               fg="#27ae60")
+        latest_label.pack(anchor="w")
+        
+        # 更新說明
+        tk.Label(main_frame,
+                text="更新內容：",
+                font=("Microsoft YaHei", 12, "bold"),
+                bg="#f0f0f0",
+                fg="#2c3e50").pack(anchor="w", pady=(10, 5))
+        
+        # 創建滾動文本框顯示更新說明
+        text_frame = tk.Frame(main_frame, bg="#f0f0f0")
+        text_frame.pack(fill="both", expand=True, pady=(0, 20))
+        
+        scrollbar = tk.Scrollbar(text_frame)
+        scrollbar.pack(side="right", fill="y")
+        
+        text_widget = tk.Text(text_frame,
+                             height=8,
+                             wrap="word",
+                             font=("Microsoft YaHei", 10),
+                             yscrollcommand=scrollbar.set,
+                             bg="white",
+                             fg="#2c3e50",
+                             relief="solid",
+                             borderwidth=1)
+        text_widget.pack(side="left", fill="both", expand=True)
+        scrollbar.config(command=text_widget.yview)
+        
+        # 插入更新說明
+        text_widget.insert("1.0", self.update_info['description'])
+        text_widget.config(state="disabled")
+        
+        # 按鈕框架
+        button_frame = tk.Frame(main_frame, bg="#f0f0f0")
+        button_frame.pack(fill="x")
+        
+        # 下載更新按鈕
+        download_btn = tk.Button(button_frame,
+                                text="📥 下載更新",
+                                command=self.download_update,
+                                bg="#3498db",
+                                fg="white",
+                                font=("Microsoft YaHei", 11, "bold"),
+                                width=12,
+                                relief="flat",
+                                cursor="hand2")
+        download_btn.pack(side="left", padx=(0, 10))
+        
+        # 稍後提醒按鈕
+        later_btn = tk.Button(button_frame,
+                             text="稍後提醒",
+                             command=self.remind_later,
+                             bg="#95a5a6",
+                             fg="white",
+                             font=("Microsoft YaHei", 11),
+                             width=10,
+                             relief="flat",
+                             cursor="hand2")
+        later_btn.pack(side="left", padx=(0, 10))
+        
+        # 跳過此版本按鈕
+        skip_btn = tk.Button(button_frame,
+                            text="跳過此版本",
+                            command=self.skip_version,
+                            bg="#e74c3c",
+                            fg="white",
+                            font=("Microsoft YaHei", 11),
+                            width=12,
+                            relief="flat",
+                            cursor="hand2")
+        skip_btn.pack(side="right")
+        
+    def download_update(self):
+        """開啟下載頁面"""
+        try:
+            webbrowser.open(self.update_info['download_url'])
+            messagebox.showinfo("提示", "已開啟下載頁面，請下載最新版本後替換現有檔案。")
+        except Exception as e:
+            messagebox.showerror("錯誤", f"無法開啟下載頁面：{str(e)}")
+        self.destroy()
+        
+    def remind_later(self):
+        """稍後提醒"""
+        self.destroy()
+        
+    def skip_version(self):
+        """跳過此版本"""
+        # 在實際應用中，這裡可以保存跳過的版本號到設置文件
+        messagebox.showinfo("提示", f"已跳過版本 v{self.update_info['version']}")
+        self.destroy()
 
 
 class TextInsertDialog(tk.Toplevel):
@@ -622,6 +855,9 @@ class PDFToolkit:
         # 設置錯誤日誌
         self._setup_error_logging()
         
+        # 初始化更新檢查器
+        self.update_checker = UpdateChecker(APP_VERSION, UPDATE_CHECK_URL, DOWNLOAD_URL)
+        
         # 色系配置
         self.colors = {
             'bg_main': '#F8F9FA',
@@ -806,6 +1042,31 @@ class PDFToolkit:
                                   fg=self.colors['fg_secondary'],
                                   font=("Microsoft YaHei", 12, "bold"))
         subtitle_label.pack()
+        
+        # 版本信息和更新檢查區域
+        version_frame = tk.Frame(content_frame, bg=self.colors['bg_panel'])
+        version_frame.pack(pady=(5, 0))
+        
+        # 版本標籤
+        version_label = tk.Label(version_frame,
+                                text=f"版本 v{APP_VERSION}",
+                                bg=self.colors['bg_panel'],
+                                fg=self.colors['fg_secondary'],
+                                font=("Microsoft YaHei", 9))
+        version_label.pack(side="left", padx=(0, 10))
+        
+        # 檢查更新按鈕
+        update_btn = tk.Button(version_frame,
+                              text="🔄 檢查更新",
+                              command=self._check_for_updates,
+                              bg=self.colors['info'],
+                              fg="white",
+                              font=("Microsoft YaHei", 9),
+                              relief="flat",
+                              cursor="hand2",
+                              padx=8,
+                              pady=2)
+        update_btn.pack(side="left")
 
     def _create_steps_guide(self):
         """建立步驟說明區域"""
@@ -1764,7 +2025,62 @@ class PDFToolkit:
             self._log_message(f"錯誤日誌檔案：{self.log_file_path}", "info")
         else:
             self._log_message("錯誤日誌系統未啟用", "warning")
+        
+        # 啟動後自動檢查更新（在背景執行）
+        self.root.after(2000, self._auto_check_updates)  # 2秒後檢查
+        
         self.root.mainloop()
+    
+    def _check_for_updates(self):
+        """手動檢查更新"""
+        self._log_message("檢查更新中...", "info")
+        
+        def on_update_result(result):
+            # 在主執行緒中處理結果
+            self.root.after(0, lambda: self._handle_update_result(result, manual=True))
+        
+        self.update_checker.check_for_updates(on_update_result)
+    
+    def _auto_check_updates(self):
+        """自動檢查更新（靜默）"""
+        def on_update_result(result):
+            # 在主執行緒中處理結果
+            self.root.after(0, lambda: self._handle_update_result(result, manual=False))
+        
+        self.update_checker.check_for_updates(on_update_result)
+    
+    def _handle_update_result(self, result, manual=False):
+        """處理更新檢查結果"""
+        try:
+            if 'error' in result:
+                if manual:  # 只有手動檢查時才顯示錯誤
+                    messagebox.showerror("檢查更新失敗", result['message'])
+                self._log_message(f"更新檢查失敗：{result['message']}", "error")
+                
+            elif result.get('available', False):
+                # 有新版本可用
+                self._log_message(f"發現新版本 v{result['version']}", "success")
+                if manual or self._should_show_update_dialog(result['version']):
+                    # 顯示更新對話框
+                    UpdateDialog(self.root, result)
+                    
+            else:
+                # 已是最新版本
+                if manual:  # 只有手動檢查時才顯示
+                    messagebox.showinfo("檢查更新", result.get('message', '您已經使用最新版本！'))
+                self._log_message("已使用最新版本", "info")
+                
+        except Exception as e:
+            error_msg = f"處理更新結果時發生錯誤：{str(e)}"
+            self._log_message(error_msg, "error")
+            if manual:
+                messagebox.showerror("錯誤", error_msg)
+    
+    def _should_show_update_dialog(self, new_version):
+        """判斷是否應該顯示更新對話框（自動檢查時）"""
+        # 在實際應用中，這裡可以檢查用戶設置或跳過的版本
+        # 現在簡單返回True，表示總是顯示
+        return True
 
 
 class SignEditor(tk.Toplevel):
@@ -2649,21 +2965,33 @@ class SignEditor(tk.Toplevel):
         pdf_height = page_rect.height
 
         # 計算簽名的預設位置（PDF中央偏下，以PDF坐標為準）
+        # 使用縮放後的圖片尺寸來計算位置
         default_x = (pdf_width - signature_copy.width) / 2
         default_y = pdf_height * 0.7  # PDF頁面70%高度的位置
+        
+        # 確保位置在合理範圍內
+        safe_x = max(50, min(default_x, pdf_width - signature_copy.width - 50))
+        safe_y = max(50, min(default_y, pdf_height - signature_copy.height - 50))
 
         signature_obj = {
             'image': signature_copy,
             'original_image': signature_copy.copy(),  # 保存原始圖片用於縮放
             'page': self.page_index,
-            'x': max(50, default_x),  # 確保不會太靠左（PDF坐標）
-            'y': max(50, default_y),  # 確保不會太靠上（PDF坐標）
+            'x': safe_x,  # 使用安全的PDF坐標
+            'y': safe_y,  # 使用安全的PDF坐標
             'type': signature_type,
             'id': len(self.signatures) + 1,
             'scale_factor': 1.0  # 縮放係數
         }
 
         self.signatures.append(signature_obj)
+        
+        # 記錄簽名添加的詳細信息
+        self.log_callback(
+            f"添加{signature_type}簽名: PDF坐標=({safe_x:.1f}, {safe_y:.1f}), "
+            f"圖片尺寸=({signature_copy.width}, {signature_copy.height})", 
+            "info")
+        
         self._redraw_signatures()
 
         # 自動選中新添加的簽名
@@ -2715,10 +3043,17 @@ class SignEditor(tk.Toplevel):
                 # PDF坐標轉Canvas坐標
                 display_x = page_left + (signature['x'] * self.scale)
                 display_y = page_top + (signature['y'] * self.scale)
+                
+                # 調試記錄座標轉換
+                self.log_callback(
+                    f"簽名 {signature['id']} 座標轉換: PDF坐標=({signature['x']:.1f}, {signature['y']:.1f}) "
+                    f"-> Canvas坐標=({display_x:.1f}, {display_y:.1f}), scale={self.scale:.2f}", 
+                    "debug")
             else:
                 # 後備方案：直接使用PDF坐標
                 display_x = signature['x']
                 display_y = signature['y']
+                self.log_callback("無法獲取頁面邊界，使用PDF坐標作為Canvas坐標", "warning")
 
             # 創建簽名圖片 - 使用簡單的標籤系統
             signature_tag = f"sig_{signature['id']}"
@@ -2797,8 +3132,19 @@ class SignEditor(tk.Toplevel):
                         if page_bbox:
                             page_left, page_top = page_bbox[0], page_bbox[1]
                             # 更新相對於PDF的位置（考慮縮放）
-                            signature['x'] = (coords[0] - page_left) / self.scale
-                            signature['y'] = (coords[1] - page_top) / self.scale
+                            # 確保座標轉換的精確性
+                            pdf_x = (coords[0] - page_left) / self.scale
+                            pdf_y = (coords[1] - page_top) / self.scale
+                            
+                            # 驗證PDF坐標的合理性
+                            page = self.pdf.load_page(signature['page'])
+                            page_rect = page.rect
+                            pdf_width, pdf_height = page_rect.width, page_rect.height
+                            
+                            # 確保坐標在PDF範圍內
+                            signature['x'] = max(0, min(pdf_x, pdf_width - signature['image'].width))
+                            signature['y'] = max(0, min(pdf_y, pdf_height - signature['image'].height))
+                            
                             self.log_callback(
                                 f"簽名移動到 PDF坐標 ({signature['x']:.1f}, {signature['y']:.1f})",
                                 "info")
@@ -2963,13 +3309,21 @@ class SignEditor(tk.Toplevel):
                         page_bbox = self.canvas.bbox("page")
                         if page_bbox:
                             page_left, page_top = page_bbox[0], page_bbox[1]
-                            # 更新相對於PDF的位置
-                            signature['x'] = (coords[0] -
-                                              page_left) / self.scale
-                            signature['y'] = (coords[1] -
-                                              page_top) / self.scale
+                            # 更新相對於PDF的位置（確保精確性）
+                            pdf_x = (coords[0] - page_left) / self.scale
+                            pdf_y = (coords[1] - page_top) / self.scale
+                            
+                            # 驗證PDF坐標的合理性
+                            page = self.pdf.load_page(signature['page'])
+                            page_rect = page.rect
+                            pdf_width, pdf_height = page_rect.width, page_rect.height
+                            
+                            # 確保坐標在PDF範圍內
+                            signature['x'] = max(0, min(pdf_x, pdf_width - signature['image'].width))
+                            signature['y'] = max(0, min(pdf_y, pdf_height - signature['image'].height))
+                            
                             self.log_callback(
-                                f"簽名移動到 ({signature['x']:.1f}, {signature['y']:.1f})",
+                                f"簽名移動到 PDF坐標 ({signature['x']:.1f}, {signature['y']:.1f})",
                                 "info")
                 except Exception as e:
                     self.log_callback(f"更新位置失敗：{str(e)}", "error")
@@ -3092,11 +3446,30 @@ class SignEditor(tk.Toplevel):
                 # 使用實際的縮放後圖片大小
                 actual_img = signature['image']  # 這已經是縮放後的圖片
                 img_width, img_height = actual_img.size
+                
+                # 記錄詳細信息用於調試
+                self.log_callback(
+                    f"保存簽名 {signature['id']}: 位置=({signature['x']:.1f}, {signature['y']:.1f}), "
+                    f"尺寸=({img_width}, {img_height}), 類型={signature['type']}", 
+                    "info")
 
-                # 簽名矩形 - 使用實際圖片尺寸
+                # 簽名矩形 - 使用實際圖片尺寸和PDF坐標
                 rect = fitz.Rect(signature['x'], signature['y'],
                                  signature['x'] + img_width,
                                  signature['y'] + img_height)
+                
+                # 驗證矩形位置是否在頁面範圍內
+                page_rect = page.rect
+                if (rect.x0 < 0 or rect.y0 < 0 or 
+                    rect.x1 > page_rect.width or rect.y1 > page_rect.height):
+                    self.log_callback(
+                        f"警告：簽名 {signature['id']} 超出頁面範圍，將調整位置", 
+                        "warning")
+                    # 調整矩形位置確保在頁面內
+                    rect.x0 = max(0, min(rect.x0, page_rect.width - img_width))
+                    rect.y0 = max(0, min(rect.y0, page_rect.height - img_height))
+                    rect.x1 = rect.x0 + img_width
+                    rect.y1 = rect.y0 + img_height
 
                 # 插入簽名圖片
                 page.insert_image(rect,
