@@ -28,8 +28,8 @@ from packaging import version
 
 # 應用程式版本信息
 APP_VERSION = "4.1.0"
-UPDATE_CHECK_URL = "https://api.github.com/repos/seikaikyo/PDF_TOOL/releases/latest"
-DOWNLOAD_URL = "https://github.com/seikaikyo/PDF_TOOL/releases/latest"
+UPDATE_CHECK_URL = "https://gitlab.example.com/api/v4/projects/team%2Fpdf_tool/releases"
+DOWNLOAD_URL = "https://gitlab.example.com/team/pdf_tool/-/releases"
 
 class UpdateChecker:
     """版本更新檢查器"""
@@ -52,30 +52,40 @@ class UpdateChecker:
                     # 發送請求
                     with urllib.request.urlopen(request, timeout=10) as response:
                         data = json.loads(response.read().decode('utf-8'))
-                        
-                    # 解析版本號
-                    latest_version = data["tag_name"].lstrip('v')
                     
-                    # 比較版本
-                    if version.parse(latest_version) > version.parse(self.current_version):
-                        update_info = {
-                            'available': True,
-                            'version': latest_version,
-                            'title': data.get("name", f"v{latest_version}"),
-                            'description': data.get("body", "新版本可用"),
-                            'download_url': data.get("html_url", self.download_url),
-                            'date': data.get("published_at", "")
-                        }
+                    # GitLab API 返回釋出版本陣列，取最新的一個
+                    if isinstance(data, list) and len(data) > 0:
+                        latest_release = data[0]  # GitLab 按時間降序排列
+                        
+                        # 解析版本號
+                        latest_version = latest_release["tag_name"].lstrip('v')
+                        
+                        # 比較版本
+                        if version.parse(latest_version) > version.parse(self.current_version):
+                            update_info = {
+                                'available': True,
+                                'version': latest_version,
+                                'title': latest_release.get("name", f"v{latest_version}"),
+                                'description': latest_release.get("description", "新版本可用"),
+                                'download_url': self.download_url,
+                                'date': latest_release.get("released_at", "")
+                            }
+                        else:
+                            update_info = {
+                                'available': False,
+                                'message': '您已經使用最新版本！'
+                            }
                     else:
+                        # 沒有找到釋出版本
                         update_info = {
-                            'available': False,
-                            'message': '您已經使用最新版本！'
+                            'error': True,
+                            'message': "暫時沒有發布版本，請稍後再試。"
                         }
                         
                 except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
                     # API檢查失敗，返回錯誤信息
                     if isinstance(e, urllib.error.HTTPError) and e.code == 404:
-                        error_message = "GitHub倉庫暫時沒有發布版本，請稍後再試或手動訪問GitHub查看最新版本。"
+                        error_message = "GitLab倉庫暫時沒有發布版本，請稍後再試或手動訪問GitLab查看最新版本。"
                     else:
                         error_message = f"無法連接到更新伺服器：{str(e)}"
                     
