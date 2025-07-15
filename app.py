@@ -72,34 +72,17 @@ class UpdateChecker:
                             'message': '您已經使用最新版本！'
                         }
                         
-                except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError):
-                    # API檢查失敗，使用模擬檢查作為後備
-                    mock_response = {
-                        "tag_name": "v4.2.0",
-                        "name": "PDF Toolkit v4.2.0",
-                        "body": "🎉 最新功能更新\n\n✨ 新增功能：\n- 批量PDF處理模式\n- 自定義浮水印功能\n- PDF加密保護\n- 更多字體支援\n\n🔧 改進優化：\n- 修復手寫簽名位置問題\n- 提升處理大檔案性能\n- 優化記憶體使用\n- 增強用戶介面體驗\n\n🐛 錯誤修復：\n- 修復某些PDF無法開啟的問題\n- 解決高DPI螢幕顯示異常\n- 修復文字插入編碼問題",
-                        "html_url": self.download_url,
-                        "published_at": "2025-01-15T15:30:00Z"
-                    }
-                    
-                    # 解析版本號
-                    latest_version = mock_response["tag_name"].lstrip('v')
-                    
-                    # 比較版本
-                    if version.parse(latest_version) > version.parse(self.current_version):
-                        update_info = {
-                            'available': True,
-                            'version': latest_version,
-                            'title': mock_response["name"],
-                            'description': mock_response["body"],
-                            'download_url': mock_response["html_url"],
-                            'date': mock_response["published_at"]
-                        }
+                except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
+                    # API檢查失敗，返回錯誤信息
+                    if isinstance(e, urllib.error.HTTPError) and e.code == 404:
+                        error_message = "GitHub倉庫暫時沒有發布版本，請稍後再試或手動訪問GitHub查看最新版本。"
                     else:
-                        update_info = {
-                            'available': False,
-                            'message': '您已經使用最新版本！'
-                        }
+                        error_message = f"無法連接到更新伺服器：{str(e)}"
+                    
+                    update_info = {
+                        'error': True,
+                        'message': error_message
+                    }
                     
                 if callback:
                     callback(update_info)
