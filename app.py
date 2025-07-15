@@ -1051,31 +1051,6 @@ class PDFToolkit:
                                   fg=self.colors['fg_secondary'],
                                   font=("Microsoft YaHei", 12, "bold"))
         subtitle_label.pack()
-        
-        # 版本信息和更新檢查區域
-        version_frame = tk.Frame(content_frame, bg=self.colors['bg_panel'])
-        version_frame.pack(pady=(5, 0))
-        
-        # 版本標籤
-        version_label = tk.Label(version_frame,
-                                text=f"版本 v{APP_VERSION}",
-                                bg=self.colors['bg_panel'],
-                                fg=self.colors['fg_secondary'],
-                                font=("Microsoft YaHei", 9))
-        version_label.pack(side="left", padx=(0, 10))
-        
-        # 檢查更新按鈕
-        update_btn = tk.Button(version_frame,
-                              text="🔄 檢查更新",
-                              command=self._check_for_updates,
-                              bg=self.colors['info'],
-                              fg="white",
-                              font=("Microsoft YaHei", 9),
-                              relief="flat",
-                              cursor="hand2",
-                              padx=8,
-                              pady=2)
-        update_btn.pack(side="left")
 
     def _create_steps_guide(self):
         """建立步驟說明區域"""
@@ -1295,6 +1270,43 @@ class PDFToolkit:
 
         # 日誌區域
         self._create_log_section(right_panel)
+        
+        # 版本信息和更新按鈕
+        self._create_version_section(right_panel)
+
+    def _create_version_section(self, parent):
+        """建立版本信息和更新按鈕區域"""
+        version_frame = tk.LabelFrame(parent,
+                                     text="版本信息",
+                                     bg=self.colors['bg_panel'],
+                                     fg=self.colors['fg_primary'],
+                                     font=("Microsoft YaHei", 10, "bold"))
+        version_frame.pack(fill="x", padx=10, pady=(5, 10))
+        
+        # 版本信息容器
+        version_info_frame = tk.Frame(version_frame, bg=self.colors['bg_panel'])
+        version_info_frame.pack(fill="x", padx=10, pady=10)
+        
+        # 版本標籤
+        version_label = tk.Label(version_info_frame,
+                                text=f"當前版本：v{APP_VERSION}",
+                                bg=self.colors['bg_panel'],
+                                fg=self.colors['fg_primary'],
+                                font=("Microsoft YaHei", 10))
+        version_label.pack(anchor="w", pady=(0, 10))
+        
+        # 檢查更新按鈕
+        update_btn = tk.Button(version_info_frame,
+                              text="🔄 檢查更新",
+                              command=self._check_for_updates,
+                              bg=self.colors['info'],
+                              fg="white",
+                              font=("Microsoft YaHei", 10, "bold"),
+                              relief="flat",
+                              cursor="hand2",
+                              padx=15,
+                              pady=5)
+        update_btn.pack(anchor="w")
 
     def _create_info_section(self, parent):
         """建立資訊顯示區域"""
