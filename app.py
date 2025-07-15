@@ -28,7 +28,7 @@ import ssl
 from packaging import version
 
 # 應用程式版本信息
-APP_VERSION = "4.1.0"
+APP_VERSION = "4.2.0"
 UPDATE_CHECK_URL = "https://gitlab.example.com/api/v4/projects/team%2Fpdf_tool/releases?per_page=1"
 DOWNLOAD_URL = "https://gitlab.example.com/team/pdf_tool/-/releases"
 GITLAB_TOKEN = "{{GITLAB_TOKEN}}"  # GitLab Personal Access Token
