@@ -1471,7 +1471,7 @@ class PDFToolkit:
 
         # 版本資訊
         tk.Label(status_frame,
-                 text="v2.0.0",
+                 text=f"v{APP_VERSION}",
                  bg=self.colors['bg_panel'],
                  fg=self.colors['info'],
                  font=("Microsoft YaHei", 9, "bold")).pack(side="right",
