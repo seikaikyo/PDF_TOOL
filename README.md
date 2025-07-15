@@ -41,15 +41,25 @@ A complete PDF processing solution that combines merging, digital signatures, sp
 - **Size Reduction**: Significant file size reduction while maintaining quality
 - **Progress Tracking**: Real-time compression progress display
 
-#### User Experience & Updates
+#### PDF Watermarks
+- **Text Watermarks**: Add custom text with adjustable size, opacity, and rotation
+- **Image Watermarks**: Insert image logos or stamps as watermarks
+- **Flexible Positioning**: Place watermarks at center, corners, or custom positions
+- **Batch Processing**: Apply watermarks to multiple PDF files simultaneously
+- **Customization**: Adjust transparency, size, and positioning for optimal appearance
+
+#### User Experience & Design
+- **Japanese-Inspired Design**: Elegant color scheme based on traditional Nippon colors
 - **Unified Interface**: All PDF operations in one application
 - **Responsive Design**: Adaptive layout for different screen sizes and laptop displays
 - **Automatic Updates**: Smart version checking with GitLab integration
 - **Manual Update Check**: One-click update checking from the interface
+- **Comprehensive Help**: Integrated About dialog with detailed operation guides
 - **Keyboard Shortcuts**: Quick access to scaling and deletion functions
 - **Error Logging**: Comprehensive error tracking with detailed logs
 - **Progress Feedback**: Real-time progress indicators for all operations
 - **Intuitive Controls**: User-friendly interface suitable for all skill levels
+- **Color Harmony**: Soothing color palette reducing eye strain during extended use
 
 ### Requirements
 - Python 3.7 or higher
@@ -333,7 +343,21 @@ These executables are standalone and do not require Python installation on the t
 
 ## Version History / バージョン履歴 / 版本歷史
 
-### v4.1.0 (Development / 開發中 / 開發中) - Auto Update & Enhancements
+### v4.2.0 - Watermark & UI Enhancement
+- ✨ **NEW**: PDF watermark functionality with text and image support
+- ✨ **NEW**: Japanese-inspired color scheme based on traditional Nippon colors
+- ✨ **NEW**: Comprehensive About dialog with operation guide and features
+- ✨ **NEW**: Enhanced version information display in update checks
+- 🎨 **REDESIGNED**: Interface with elegant Japanese color palette
+  - Background: Awayuki (淡雪) and Shiracha (白茶) tones
+  - Accents: Mizuasagi (水浅葱), Ruri (瑠璃), and Tokiwa (常磐) colors
+  - Buttons: Harmonious color scheme with Kaki (柿) orange for watermark
+- 🔧 **IMPROVED**: Streamlined interface with consolidated help information
+- 🔧 **IMPROVED**: Better text watermark positioning and compatibility
+- 🔧 **IMPROVED**: Enhanced error handling and user feedback
+- 📝 **DOCS**: Updated documentation with new features and design changes
+
+### v4.1.0 - Auto Update & Enhancements
 - ✨ **NEW**: Automatic update checking with smart notifications
 - ✨ **NEW**: Manual update check with version comparison
 - ✨ **NEW**: Beautiful update dialog with download integration
@@ -369,4 +393,4 @@ These executables are standalone and do not require Python installation on the t
 - ✨ Page reordering capabilities
 - ✨ Real-time preview
 
-Current version / 現在のバージョン / 目前版本: **v4.1.0**
+Current version / 現在のバージョン / 目前版本: **v4.2.0**
