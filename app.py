@@ -24,6 +24,7 @@ import urllib.request
 import urllib.parse
 import json
 import webbrowser
+import ssl
 from packaging import version
 
 # 應用程式版本信息
@@ -53,8 +54,12 @@ class UpdateChecker:
                     if self.gitlab_token:
                         request.add_header('PRIVATE-TOKEN', self.gitlab_token)
                     
-                    # 發送請求
-                    with urllib.request.urlopen(request, timeout=10) as response:
+                    # 發送請求（跳過 SSL 驗證用於內部 GitLab）
+                    ssl_context = ssl.create_default_context()
+                    ssl_context.check_hostname = False
+                    ssl_context.verify_mode = ssl.CERT_NONE
+                    
+                    with urllib.request.urlopen(request, timeout=10, context=ssl_context) as response:
                         data = json.loads(response.read().decode('utf-8'))
                     
                     # GitLab API 返回釋出版本陣列，取最新的一個
