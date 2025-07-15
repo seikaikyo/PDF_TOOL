@@ -30,6 +30,7 @@ Thumbs.db
 
 # 日誌檔案
 *.log
+/logs/
 
 # 臨時檔案
 *.tmp
