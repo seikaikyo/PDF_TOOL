@@ -887,7 +887,7 @@ class PDFToolkit:
         self.root = TkinterDnD.Tk()
         self.root.title("PDF 工具包 - 合併、簽名、拆分、壓縮")
         self.root.geometry("1400x900")
-        self.root.minsize(1200, 800)
+        self.root.minsize(1000, 600)  # 降低最小尺寸要求
         self.root.configure(bg=self.colors['bg_main'])
 
         # 資料結構
@@ -1270,43 +1270,7 @@ class PDFToolkit:
 
         # 日誌區域
         self._create_log_section(right_panel)
-        
-        # 版本信息和更新按鈕
-        self._create_version_section(right_panel)
 
-    def _create_version_section(self, parent):
-        """建立版本信息和更新按鈕區域"""
-        version_frame = tk.LabelFrame(parent,
-                                     text="版本信息",
-                                     bg=self.colors['bg_panel'],
-                                     fg=self.colors['fg_primary'],
-                                     font=("Microsoft YaHei", 10, "bold"))
-        version_frame.pack(fill="x", padx=10, pady=(5, 10))
-        
-        # 版本信息容器
-        version_info_frame = tk.Frame(version_frame, bg=self.colors['bg_panel'])
-        version_info_frame.pack(fill="x", padx=10, pady=10)
-        
-        # 版本標籤
-        version_label = tk.Label(version_info_frame,
-                                text=f"當前版本：v{APP_VERSION}",
-                                bg=self.colors['bg_panel'],
-                                fg=self.colors['fg_primary'],
-                                font=("Microsoft YaHei", 10))
-        version_label.pack(anchor="w", pady=(0, 10))
-        
-        # 檢查更新按鈕
-        update_btn = tk.Button(version_info_frame,
-                              text="🔄 檢查更新",
-                              command=self._check_for_updates,
-                              bg=self.colors['info'],
-                              fg="white",
-                              font=("Microsoft YaHei", 10, "bold"),
-                              relief="flat",
-                              cursor="hand2",
-                              padx=15,
-                              pady=5)
-        update_btn.pack(anchor="w")
 
     def _create_info_section(self, parent):
         """建立資訊顯示區域"""
@@ -1411,6 +1375,31 @@ class PDFToolkit:
                                       font=("Microsoft YaHei", 11, "bold"),
                                       height=2)
         self.compress_btn.pack(side="right", fill="both", expand=True, padx=(5, 0))
+        
+        # 版本和更新區域
+        version_container = tk.Frame(action_frame, bg=self.colors['bg_panel'])
+        version_container.pack(fill="x", padx=10, pady=(10, 5))
+        
+        # 版本標籤
+        version_label = tk.Label(version_container,
+                                text=f"v{APP_VERSION}",
+                                bg=self.colors['bg_panel'],
+                                fg=self.colors['fg_secondary'],
+                                font=("Microsoft YaHei", 9))
+        version_label.pack(side="left")
+        
+        # 檢查更新按鈕（小巧版）
+        update_btn = tk.Button(version_container,
+                              text="🔄 檢查更新",
+                              command=self._check_for_updates,
+                              bg=self.colors['info'],
+                              fg="white",
+                              font=("Microsoft YaHei", 9),
+                              relief="flat",
+                              cursor="hand2",
+                              padx=10,
+                              pady=2)
+        update_btn.pack(side="right")
 
     def _create_progress_section(self, parent):
         """建立進度顯示區域"""
