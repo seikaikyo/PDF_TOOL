@@ -97,11 +97,22 @@ echo 🔨 步驟7：重新打包（使用修正的參數）...
 echo 這次使用更安全的打包設定...
 echo.
 
-:: 使用英文檔案名稱避免編碼問題
-set "app_name_en=PDFMerger"
-set "app_name_ch=PDF合併工具"
+:: 讀取版本號
+echo 🔍 讀取應用程式版本...
+for /f "tokens=2 delims='" %%a in ('findstr "APP_VERSION.*=" app.py') do (
+    set "app_version=%%a"
+)
+if defined app_version (
+    echo ✅ 找到版本號: %app_version%
+    set "app_name_en=PDFToolkit-v%app_version%"
+    set "app_name_ch=PDF工具包-v%app_version%"
+) else (
+    echo ⚠️  未找到版本號，使用預設名稱
+    set "app_name_en=PDFToolkit"
+    set "app_name_ch=PDF工具包"
+)
 
-echo 使用安全的英文檔案名稱進行打包...
+echo 使用檔案名稱: %app_name_en%
 echo.
 
 :: 修正的打包指令
