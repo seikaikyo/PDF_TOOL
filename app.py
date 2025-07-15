@@ -28,16 +28,18 @@ from packaging import version
 
 # 應用程式版本信息
 APP_VERSION = "4.1.0"
-UPDATE_CHECK_URL = "https://gitlab.example.com/api/v4/projects/team%2Fpdf_tool/releases"
+UPDATE_CHECK_URL = "https://gitlab.example.com/api/v4/projects/team%2Fpdf_tool/releases?per_page=1"
 DOWNLOAD_URL = "https://gitlab.example.com/team/pdf_tool/-/releases"
+GITLAB_TOKEN = "{{GITLAB_TOKEN}}"  # GitLab Personal Access Token
 
 class UpdateChecker:
     """版本更新檢查器"""
     
-    def __init__(self, current_version, check_url, download_url):
+    def __init__(self, current_version, check_url, download_url, gitlab_token=None):
         self.current_version = current_version
         self.check_url = check_url
         self.download_url = download_url
+        self.gitlab_token = gitlab_token
         
     def check_for_updates(self, callback=None):
         """檢查更新（在背景執行緒中）"""
@@ -48,6 +50,8 @@ class UpdateChecker:
                     # 設置請求頭
                     request = urllib.request.Request(self.check_url)
                     request.add_header('User-Agent', 'PDF-Toolkit-App')
+                    if self.gitlab_token:
+                        request.add_header('PRIVATE-TOKEN', self.gitlab_token)
                     
                     # 發送請求
                     with urllib.request.urlopen(request, timeout=10) as response:
@@ -84,10 +88,17 @@ class UpdateChecker:
                         
                 except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
                     # API檢查失敗，返回錯誤信息
-                    if isinstance(e, urllib.error.HTTPError) and e.code == 404:
-                        error_message = "GitLab倉庫暫時沒有發布版本，請稍後再試或手動訪問GitLab查看最新版本。"
+                    if isinstance(e, urllib.error.HTTPError):
+                        if e.code == 404:
+                            error_message = "GitLab倉庫暫時沒有發布版本，請稍後再試或手動訪問GitLab查看最新版本。"
+                        else:
+                            error_message = f"GitLab API 錯誤 {e.code}：{str(e)}"
                     else:
                         error_message = f"無法連接到更新伺服器：{str(e)}"
+                    
+                    # 添加調試信息
+                    print(f"[DEBUG] 更新檢查失敗: {error_message}")
+                    print(f"[DEBUG] 檢查URL: {self.check_url}")
                     
                     update_info = {
                         'error': True,
@@ -849,7 +860,7 @@ class PDFToolkit:
         self._setup_error_logging()
         
         # 初始化更新檢查器
-        self.update_checker = UpdateChecker(APP_VERSION, UPDATE_CHECK_URL, DOWNLOAD_URL)
+        self.update_checker = UpdateChecker(APP_VERSION, UPDATE_CHECK_URL, DOWNLOAD_URL, GITLAB_TOKEN)
         
         # 色系配置
         self.colors = {
