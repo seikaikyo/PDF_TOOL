@@ -32,112 +32,161 @@ from packaging import version
 
 # 應用程式版本信息
 APP_VERSION = "4.2.0"
-UPDATE_CHECK_URL = "https://gitlab.example.com/api/v4/projects/team%2Fpdf_tool/releases?per_page=1"
-DOWNLOAD_URL = "https://gitlab.example.com/team/pdf_tool/-/releases"
-GITLAB_TOKEN = "{{GITLAB_TOKEN}}"  # GitLab Personal Access Token
+
+# 多源更新配置 - 支援內網 GitLab 和外網 GitHub
+UPDATE_SOURCES = {
+    'gitlab': {
+        'name': 'Internal GitLab',
+        'api_url': "https://gitlab.example.com/api/v4/projects/team%2Fpdf_tool/releases?per_page=1",
+        'download_url': "https://gitlab.example.com/team/pdf_tool/-/releases",
+        'token': "{{GITLAB_TOKEN}}",
+        'priority': 1  # 優先級：1=最高
+    },
+    'github': {
+        'name': 'GitHub Public',
+        'api_url': "https://api.github.com/repos/seikaikyo/PDF_TOOL/releases/latest",
+        'download_url': "https://github.com/seikaikyo/PDF_TOOL/releases",
+        'token': None,  # GitHub public repo 不需要 token
+        'priority': 2  # 備用源
+    }
+}
 
 
 class UpdateChecker:
-    """版本更新檢查器"""
+    """智能多源版本更新檢查器"""
 
-    def __init__(self,
-                 current_version,
-                 check_url,
-                 download_url,
-                 gitlab_token=None):
+    def __init__(self, current_version, update_sources):
         self.current_version = current_version
-        self.check_url = check_url
-        self.download_url = download_url
-        self.gitlab_token = gitlab_token
+        self.update_sources = update_sources
+        self.last_successful_source = None
 
     def check_for_updates(self, callback=None):
-        """檢查更新（在背景執行緒中）"""
-
+        """智能多源檢查更新（在背景執行緒中）"""
         def _check():
-            try:
-                # 優先嘗試真實的API檢查
+            # 根據優先級排序更新源
+            sorted_sources = sorted(self.update_sources.items(), 
+                                  key=lambda x: x[1]['priority'])
+            
+            # 如果上次有成功的源，優先嘗試
+            if self.last_successful_source and self.last_successful_source in self.update_sources:
+                sorted_sources.insert(0, (self.last_successful_source, 
+                                         self.update_sources[self.last_successful_source]))
+            
+            update_info = None
+            
+            for source_name, source_config in sorted_sources:
                 try:
-                    # 設置請求頭
-                    request = urllib.request.Request(self.check_url)
-                    request.add_header('User-Agent', 'PDF-Toolkit-App')
-                    if self.gitlab_token:
-                        request.add_header('PRIVATE-TOKEN', self.gitlab_token)
-
-                    # 發送請求（跳過 SSL 驗證用於內部 GitLab）
-                    ssl_context = ssl.create_default_context()
-                    ssl_context.check_hostname = False
-                    ssl_context.verify_mode = ssl.CERT_NONE
-
-                    with urllib.request.urlopen(
-                            request, timeout=10,
-                            context=ssl_context) as response:
-                        data = json.loads(response.read().decode('utf-8'))
-
-                    # GitLab API 返回釋出版本陣列，取最新的一個
-                    if isinstance(data, list) and len(data) > 0:
-                        latest_release = data[0]  # GitLab 按時間降序排列
-
-                        # 解析版本號
-                        latest_version = latest_release["tag_name"].lstrip('v')
-
-                        # 比較版本
-                        if version.parse(latest_version) > version.parse(
-                                self.current_version):
-                            update_info = {
-                                'available':
-                                True,
-                                'version':
-                                latest_version,
-                                'title':
-                                latest_release.get("name",
-                                                   f"v{latest_version}"),
-                                'description':
-                                latest_release.get("description", "新版本可用"),
-                                'download_url':
-                                self.download_url,
-                                'date':
-                                latest_release.get("released_at", "")
-                            }
-                        else:
-                            update_info = {
-                                'available': False,
-                                'message': '您已經使用最新版本！'
-                            }
-                    else:
-                        # 沒有找到釋出版本
-                        update_info = {
-                            'error': True,
-                            'message': "暫時沒有發布版本，請稍後再試。"
-                        }
-
-                except (urllib.error.URLError, urllib.error.HTTPError,
-                        json.JSONDecodeError) as e:
-                    # API檢查失敗，返回錯誤信息
-                    if isinstance(e, urllib.error.HTTPError):
-                        if e.code == 404:
-                            error_message = "GitLab倉庫暫時沒有發布版本，請稍後再試或手動訪問GitLab查看最新版本。"
-                        else:
-                            error_message = f"GitLab API 錯誤 {e.code}：{str(e)}"
-                    else:
-                        error_message = f"無法連接到更新伺服器：{str(e)}"
-
-                    # 添加調試信息
-                    print(f"[DEBUG] 更新檢查失敗: {error_message}")
-                    print(f"[DEBUG] 檢查URL: {self.check_url}")
-
-                    update_info = {'error': True, 'message': error_message}
-
-                if callback:
-                    callback(update_info)
-
-            except Exception as e:
-                error_info = {'error': True, 'message': f'檢查更新失敗：{str(e)}'}
-                if callback:
-                    callback(error_info)
-
-        # 在背景執行緒中執行檢查
-        thread = threading.Thread(target=_check, daemon=True)
+                    print(f"嘗試檢查更新源：{source_config['name']}")
+                    result = self._check_single_source(source_name, source_config)
+                    
+                    if not result.get('error', False):
+                        # 成功獲取更新信息
+                        self.last_successful_source = source_name
+                        result['source'] = source_config['name']
+                        update_info = result
+                        break
+                        
+                except Exception as e:
+                    print(f"檢查 {source_config['name']} 失敗：{e}")
+                    continue
+            
+            # 如果所有源都失敗
+            if update_info is None:
+                update_info = {
+                    'error': True,
+                    'message': '所有更新源都無法連接，請檢查網絡連接或稍後再試。\n'
+                              '內網用戶請確認可以訪問 GitLab，\n'
+                              '外網用戶請確認可以訪問 GitHub。'
+                }
+            
+            if callback:
+                callback(update_info)
+        
+        # 在新執行緒中執行檢查
+        thread = threading.Thread(target=_check)
+        thread.daemon = True
         thread.start()
+    
+    def _check_single_source(self, source_name, source_config):
+        """檢查單個更新源"""
+        try:
+            # 設置請求頭
+            request = urllib.request.Request(source_config['api_url'])
+            request.add_header('User-Agent', 'PDF-Toolkit-App/4.2.0')
+            
+            # 如果有 token，添加認證頭
+            if source_config.get('token'):
+                if source_name == 'gitlab':
+                    request.add_header('PRIVATE-TOKEN', source_config['token'])
+                elif source_name == 'github':
+                    request.add_header('Authorization', f"token {source_config['token']}")
+            
+            # 設置 SSL 上下文
+            ssl_context = ssl.create_default_context()
+            if source_name == 'gitlab':
+                # 內部 GitLab 可能需要跳過 SSL 驗證
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+            
+            # 發送請求
+            with urllib.request.urlopen(request, timeout=10, context=ssl_context) as response:
+                data = json.loads(response.read().decode('utf-8'))
+            
+            # 根據源類型解析數據
+            if source_name == 'gitlab':
+                return self._parse_gitlab_response(data, source_config)
+            elif source_name == 'github':
+                return self._parse_github_response(data, source_config)
+            else:
+                return {'error': True, 'message': f'未知的更新源類型：{source_name}'}
+                
+        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
+            if isinstance(e, urllib.error.HTTPError):
+                if e.code == 404:
+                    return {'error': True, 'message': f'{source_config["name"]} 未找到發布版本'}
+                else:
+                    return {'error': True, 'message': f'{source_config["name"]} API 錯誤 {e.code}'}
+            else:
+                return {'error': True, 'message': f'{source_config["name"]} 連接失敗：{str(e)}'}
+    
+    def _parse_gitlab_response(self, data, source_config):
+        """解析 GitLab API 響應"""
+        if isinstance(data, list) and len(data) > 0:
+            latest_release = data[0]  # GitLab 按時間降序排列
+            latest_version = latest_release["tag_name"].lstrip('v')
+            
+            if version.parse(latest_version) > version.parse(self.current_version):
+                return {
+                    'available': True,
+                    'version': latest_version,
+                    'title': latest_release.get("name", f"v{latest_version}"),
+                    'description': latest_release.get("description", "新版本可用"),
+                    'download_url': source_config['download_url'],
+                    'date': latest_release.get("released_at", "")
+                }
+            else:
+                return {'available': False, 'message': '您已經使用最新版本！'}
+        else:
+            return {'error': True, 'message': "GitLab 暫時沒有發布版本"}
+    
+    def _parse_github_response(self, data, source_config):
+        """解析 GitHub API 響應"""
+        if isinstance(data, dict) and 'tag_name' in data:
+            latest_version = data["tag_name"].lstrip('v')
+            
+            if version.parse(latest_version) > version.parse(self.current_version):
+                return {
+                    'available': True,
+                    'version': latest_version,
+                    'title': data.get("name", f"v{latest_version}"),
+                    'description': data.get("body", "新版本可用"),
+                    'download_url': source_config['download_url'],
+                    'date': data.get("published_at", "")
+                }
+            else:
+                return {'available': False, 'message': '您已經使用最新版本！'}
+        else:
+            return {'error': True, 'message': "GitHub 暫時沒有發布版本"}
 
 
 class UpdateDialog(tk.Toplevel):
@@ -1619,9 +1668,8 @@ class PDFToolkit:
         # 設置錯誤日誌
         self._setup_error_logging()
 
-        # 初始化更新檢查器
-        self.update_checker = UpdateChecker(APP_VERSION, UPDATE_CHECK_URL,
-                                            DOWNLOAD_URL, GITLAB_TOKEN)
+        # 初始化智能多源更新檢查器
+        self.update_checker = UpdateChecker(APP_VERSION, UPDATE_SOURCES)
 
         # 日系配色方案 (基於 nipponcolors.com 和 irocore.com)
         self.colors = {
