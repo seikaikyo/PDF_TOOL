@@ -41,14 +41,15 @@ A complete PDF processing solution that combines merging, digital signatures, sp
 - **Size Reduction**: Significant file size reduction while maintaining quality
 - **Progress Tracking**: Real-time compression progress display
 
-#### User Experience
+#### User Experience & Updates
 - **Unified Interface**: All PDF operations in one application
-- **Responsive Design**: Adaptive layout for different screen sizes
+- **Responsive Design**: Adaptive layout for different screen sizes and laptop displays
+- **Automatic Updates**: Smart version checking with GitLab integration
+- **Manual Update Check**: One-click update checking from the interface
 - **Keyboard Shortcuts**: Quick access to scaling and deletion functions
 - **Error Logging**: Comprehensive error tracking with detailed logs
 - **Progress Feedback**: Real-time progress indicators for all operations
 - **Intuitive Controls**: User-friendly interface suitable for all skill levels
-- **Auto Update Check**: Automatic version checking with smart update notifications
 
 ### Requirements
 - Python 3.7 or higher
