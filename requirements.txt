@@ -1,6 +1,9 @@
 pyinstaller>=5.0
+cx_Freeze>=6.0
 tkinterdnd2>=0.3.0
 PyMuPDF>=1.20.0
 Pillow>=9.0.0
 pyfiglet>=0.8.0
 packaging>=21.0
+winshell>=0.6.0
+pywin32>=300
