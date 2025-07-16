@@ -1,4 +1,5 @@
 import os
+import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import TkinterDnD, DND_FILES
@@ -1667,6 +1668,9 @@ class PDFToolkit:
     def __init__(self):
         # 設置錯誤日誌
         self._setup_error_logging()
+        
+        # 程式關閉標誌
+        self._is_closing = False
 
         # 初始化智能多源更新檢查器
         self.update_checker = UpdateChecker(APP_VERSION, UPDATE_SOURCES)
@@ -1703,6 +1707,9 @@ class PDFToolkit:
         self.root = TkinterDnD.Tk()
         self.root.title("PDF 工具包 - 合併、簽名、拆分、壓縮")
         self.root.geometry("1400x900")
+        
+        # 設置關閉處理
+        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
         self.root.minsize(1000, 600)  # 降低最小尺寸要求
         self.root.configure(bg=self.colors['bg_main'])
 
@@ -2907,36 +2914,84 @@ class PDFToolkit:
     def run(self):
         """啟動應用程式"""
         self._log_message("PDF 工具包已啟動", "success")
+        self._log_message(f"Python 版本：{sys.version}", "info")
+        self._log_message(f"執行模式：{'打包模式' if getattr(sys, 'frozen', False) else '開發模式'}", "info")
+        
         if self.log_file_path:
             self._log_message(f"錯誤日誌檔案：{self.log_file_path}", "info")
         else:
             self._log_message("錯誤日誌系統未啟用", "warning")
 
+        # 檢查是否首次啟動，詢問創建捷徑
+        self._log_message("將在 1 秒後執行首次設定檢查", "info")
+        self.root.after(1000, self._check_first_time_setup)  # 1秒後檢查
+        
         # 啟動後自動檢查更新（在背景執行）
+        self._log_message("將在 2 秒後檢查更新", "info")
         self.root.after(2000, self._auto_check_updates)  # 2秒後檢查
 
         self.root.mainloop()
+
+    def _on_closing(self):
+        """程式關閉處理"""
+        self._is_closing = True
+        self.root.destroy()
 
     def _check_for_updates(self):
         """手動檢查更新"""
         self._log_message("檢查更新中...", "info")
 
         def on_update_result(result):
-            # 在主執行緒中處理結果
-            self.root.after(
-                0, lambda: self._handle_update_result(result, manual=True))
+            # 使用線程安全的方式處理結果
+            self._thread_safe_callback(result, manual=True)
 
         self.update_checker.check_for_updates(on_update_result)
 
     def _auto_check_updates(self):
         """自動檢查更新（靜默）"""
+        # 如果程式正在關閉或沒有GUI，跳過更新檢查
+        if getattr(self, '_is_closing', False):
+            return
+            
+        if not hasattr(self, 'root') or not self.root:
+            return
+            
+        try:
+            if not self.root.winfo_exists():
+                return
+        except:
+            return
 
         def on_update_result(result):
-            # 在主執行緒中處理結果
-            self.root.after(
-                0, lambda: self._handle_update_result(result, manual=False))
+            # 使用線程安全的方式處理結果
+            self._thread_safe_callback(result, manual=False)
 
         self.update_checker.check_for_updates(on_update_result)
+
+    def _thread_safe_callback(self, result, manual=False):
+        """線程安全的回調方法"""
+        # 如果程式正在關閉，忽略更新回調
+        if getattr(self, '_is_closing', False):
+            return
+        
+        # 檢查 root 是否存在和有效
+        if not hasattr(self, 'root') or not self.root:
+            return
+            
+        try:
+            # 檢查主線程是否還在運行
+            if self.root.winfo_exists():
+                # 使用 after 調度到主線程
+                self.root.after(0, lambda: self._handle_update_result(result, manual))
+            else:
+                # 如果主線程已經結束，忽略
+                return
+        except (RuntimeError, tk.TclError) as e:
+            # 如果 tkinter 已經關閉，直接忽略
+            return
+        except Exception as e:
+            # 任何其他錯誤也忽略
+            return
 
     def _handle_update_result(self, result, manual=False):
         """處理更新檢查結果"""
@@ -2972,6 +3027,382 @@ class PDFToolkit:
         # 在實際應用中，這裡可以檢查用戶設置或跳過的版本
         # 現在簡單返回True，表示總是顯示
         return True
+
+    def _check_first_time_setup(self):
+        """檢查是否首次啟動，自動完成應用程式註冊和詢問創建捷徑"""
+        try:
+            self._log_message("開始首次設定檢查...", "info")
+            
+            # 檢查是否需要執行首次設定
+            if not self._should_run_first_time_setup():
+                self._log_message("首次設定已完成過，跳過", "info")
+                return
+            
+            self._log_message("檢測到首次啟動，開始執行設定...", "info")
+            
+            # 執行註冊
+            self._register_application()
+            
+            # 檢查並創建捷徑
+            self._check_and_create_shortcuts()
+            
+            # 標記首次設定完成
+            self._mark_first_time_setup_completed()
+            
+            # 顯示歡迎訊息和完成確認
+            messagebox.showinfo(
+                "歡迎使用 PDF Toolkit",
+                "🎉 歡迎使用 PDF Toolkit！\n\n"
+                "✅ 程式已成功註冊到系統\n"
+                "✅ 開始功能表捷徑已創建\n\n"
+                "現在您可以：\n"
+                "• 在開始功能表搜尋 'PDF Toolkit'\n"
+                "• 在設定→應用程式與功能中找到程式\n"
+                "• 將程式釘選到工作列"
+            )
+                
+        except ImportError as e:
+            self._log_message(f"缺少必要模組：{e}", "warning")
+            # 顯示手動安裝說明
+            messagebox.showinfo(
+                "安裝說明",
+                "程式已安裝完成！\n\n"
+                "由於缺少部分依賴，請手動完成以下設定：\n"
+                "1. 在開始功能表中搜尋程式位置\n"
+                "2. 右鍵點擊程式 → 釘選到開始功能表\n"
+                "3. 如需桌面捷徑，請手動創建"
+            )
+        except Exception as e:
+            self._log_message(f"檢查首次設定時發生錯誤：{e}", "error")
+            # 顯示錯誤但繼續運行
+            messagebox.showwarning(
+                "設定提醒",
+                f"自動設定遇到問題：{e}\n\n"
+                "程式仍可正常使用，但可能需要手動創建捷徑。"
+            )
+
+    def _check_and_create_shortcuts(self):
+        """檢查並創建捷徑"""
+        try:
+            import winshell
+            import os
+            
+            # 檢查桌面是否已有捷徑
+            desktop = winshell.desktop()
+            desktop_shortcut = os.path.join(desktop, "PDF Toolkit.lnk")
+            self._log_message(f"桌面捷徑檢查：{desktop_shortcut}", "info")
+            
+            # 檢查開始功能表是否已有捷徑
+            start_menu = winshell.start_menu()
+            start_shortcut = os.path.join(start_menu, "PDF Toolkit.lnk")
+            self._log_message(f"開始功能表捷徑檢查：{start_shortcut}", "info")
+            
+            # 如果開始功能表沒有捷徑，自動創建
+            if not os.path.exists(start_shortcut):
+                self._log_message("開始功能表捷徑不存在，正在創建...", "info")
+                self._create_start_menu_shortcut()
+            else:
+                self._log_message("開始功能表捷徑已存在", "info")
+            
+            # 如果桌面沒有捷徑，詢問用戶
+            if not os.path.exists(desktop_shortcut):
+                self._log_message("桌面捷徑不存在，詢問用戶是否創建", "info")
+                self._show_shortcut_dialog()
+            else:
+                self._log_message("桌面捷徑已存在", "info")
+                
+        except Exception as e:
+            self._log_message(f"檢查捷徑時發生錯誤：{e}", "error")
+            raise
+
+    def _show_shortcut_dialog(self):
+        """顯示桌面捷徑創建對話框"""
+        result = messagebox.askyesno(
+            "首次使用設定",
+            "歡迎使用 PDF Toolkit！\n\n是否要在桌面創建程式捷徑，\n方便您下次快速啟動？",
+            icon='question'
+        )
+        
+        if result:
+            self._create_desktop_shortcut()
+
+    def _create_desktop_shortcut(self):
+        """創建桌面捷徑"""
+        try:
+            import winshell
+            from win32com.client import Dispatch
+            import sys
+            import os
+            
+            # 獲取當前執行檔路徑
+            if getattr(sys, 'frozen', False):
+                # 打包模式：使用執行檔
+                current_exe = sys.executable
+                current_dir = os.path.dirname(current_exe)
+                self._log_message(f"打包模式 - 目標：{current_exe}", "info")
+            else:
+                # 開發模式：使用 python 解釋器執行腳本
+                python_exe = sys.executable
+                script_path = os.path.abspath(__file__)
+                current_dir = os.path.dirname(script_path)
+                self._log_message(f"開發模式 - Python：{python_exe}", "info")
+                self._log_message(f"開發模式 - 腳本：{script_path}", "info")
+            
+            # 創建桌面捷徑
+            desktop = winshell.desktop()
+            shortcut_path = os.path.join(desktop, "PDF Toolkit.lnk")
+            
+            shell = Dispatch('WScript.Shell')
+            shortcut = shell.CreateShortCut(shortcut_path)
+            
+            if getattr(sys, 'frozen', False):
+                # 打包模式：直接指向執行檔
+                shortcut.Targetpath = current_exe
+            else:
+                # 開發模式：指向 Python 解釋器，參數為腳本路徑
+                shortcut.Targetpath = python_exe
+                shortcut.Arguments = f'"{script_path}"'
+                
+            shortcut.WorkingDirectory = current_dir
+            shortcut.Description = "PDF Toolkit - Complete PDF Solution"
+            
+            # 設定圖示
+            icon_path = os.path.join(current_dir, "icon.ico")
+            if os.path.exists(icon_path):
+                shortcut.IconLocation = icon_path
+            
+            shortcut.save()
+            
+            self._log_message("桌面捷徑已創建", "success")
+            messagebox.showinfo("完成", "✅ 桌面捷徑已成功創建！")
+            
+        except Exception as e:
+            self._log_message(f"創建桌面捷徑失敗：{e}", "error")
+            messagebox.showerror("錯誤", f"創建桌面捷徑時發生錯誤：{e}")
+
+    def _create_shortcuts_from_app(self):
+        """從應用程式內創建捷徑"""
+        try:
+            import subprocess
+            import sys
+            import os
+            
+            # 獲取當前執行檔的路徑
+            if getattr(sys, 'frozen', False):
+                # 如果是打包的執行檔
+                current_exe = sys.executable
+                current_dir = os.path.dirname(current_exe)
+            else:
+                # 如果是 Python 腳本
+                current_exe = os.path.abspath(__file__)
+                current_dir = os.path.dirname(current_exe)
+            
+            # 查找捷徑創建腳本
+            shortcut_script = os.path.join(current_dir, "create_shortcuts.py")
+            
+            if os.path.exists(shortcut_script):
+                # 執行捷徑創建腳本（靜默模式）
+                subprocess.run([sys.executable, shortcut_script, "--silent"], 
+                             capture_output=True, text=True)
+                
+                self._log_message("桌面和開始功能表捷徑已創建", "success")
+                messagebox.showinfo("完成", "✅ 捷徑已成功創建！\n\n您現在可以從桌面或開始功能表快速啟動 PDF Toolkit。")
+            else:
+                # 如果找不到腳本，提供手動說明
+                messagebox.showinfo(
+                    "建立捷徑", 
+                    f"您可以手動建立捷徑：\n\n"
+                    f"1. 右鍵點擊桌面 → 新增 → 捷徑\n"
+                    f"2. 輸入程式位置：\n   {current_exe}\n"
+                    f"3. 命名為：PDF Toolkit"
+                )
+                
+        except Exception as e:
+            self._log_message(f"創建捷徑失敗：{e}", "error")
+            messagebox.showerror("錯誤", f"創建捷徑時發生錯誤：{e}")
+
+    def _is_app_registered(self):
+        """檢查應用程式是否已在註冊表中註冊"""
+        try:
+            import winreg
+            
+            app_key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\PDF_Toolkit.exe"
+            
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, app_key_path):
+                return True
+                
+        except FileNotFoundError:
+            return False
+        except Exception:
+            return False
+    
+    def _should_run_first_time_setup(self):
+        """檢查是否需要執行首次設定"""
+        try:
+            import winreg
+            import os
+            
+            # 檢查是否已經執行過首次設定
+            setup_key_path = r"SOFTWARE\PDFToolkit"
+            
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, setup_key_path) as key:
+                    first_run_completed, _ = winreg.QueryValueEx(key, "FirstRunCompleted")
+                    return not first_run_completed
+            except FileNotFoundError:
+                # 如果沒有這個鍵，表示是首次執行
+                return True
+            except Exception:
+                # 如果有其他錯誤，假設需要設定
+                return True
+                
+        except Exception:
+            return True
+    
+    def _mark_first_time_setup_completed(self):
+        """標記首次設定已完成"""
+        try:
+            import winreg
+            
+            setup_key_path = r"SOFTWARE\PDFToolkit"
+            
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, setup_key_path) as key:
+                winreg.SetValueEx(key, "FirstRunCompleted", 0, winreg.REG_DWORD, 1)
+                winreg.SetValueEx(key, "InstallDate", 0, winreg.REG_SZ, 
+                                 __import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                winreg.SetValueEx(key, "Version", 0, winreg.REG_SZ, APP_VERSION)
+                
+        except Exception as e:
+            self._log_message(f"標記首次設定完成失敗：{e}", "warning")
+
+    def _register_application(self):
+        """在註冊表中註冊應用程式，讓它在開始功能表和應用程式清單中可見"""
+        try:
+            import winreg
+            import sys
+            import os
+            
+            # 獲取當前執行檔路徑
+            if getattr(sys, 'frozen', False):
+                # 打包模式：使用執行檔
+                current_exe = sys.executable
+                current_dir = os.path.dirname(current_exe)
+                self._log_message(f"打包模式 - 執行檔：{current_exe}", "info")
+            else:
+                # 開發模式：註冊 Python 解釋器 + 腳本的組合
+                python_exe = sys.executable
+                script_path = os.path.abspath(__file__)
+                current_dir = os.path.dirname(script_path)
+                # 為了註冊方便，我們創建一個批次檔
+                batch_file = os.path.join(current_dir, "PDF_Toolkit.bat")
+                try:
+                    with open(batch_file, 'w', encoding='utf-8') as f:
+                        f.write(f'@echo off\n')
+                        f.write(f'cd /d "{current_dir}"\n')
+                        f.write(f'"{python_exe}" "{script_path}"\n')
+                    current_exe = batch_file
+                    self._log_message(f"開發模式 - 批次檔：{current_exe}", "info")
+                except Exception as e:
+                    # 如果無法創建批次檔，直接使用 Python 路徑
+                    current_exe = f'"{python_exe}" "{script_path}"'
+                    self._log_message(f"開發模式 - 命令：{current_exe}", "info")
+            
+            self._log_message(f"程式目錄：{current_dir}", "info")
+            
+            # 註冊應用程式路徑
+            app_key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\PDF_Toolkit.exe"
+            self._log_message(f"註冊應用程式路徑：{app_key_path}", "info")
+            
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, app_key_path) as key:
+                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, current_exe)
+                winreg.SetValueEx(key, "Path", 0, winreg.REG_SZ, current_dir)
+            
+            self._log_message("應用程式路徑註冊完成", "success")
+            
+            # 註冊卸載資訊
+            uninstall_key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PDFToolkit"
+            self._log_message(f"註冊卸載資訊：{uninstall_key_path}", "info")
+            
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, uninstall_key_path) as key:
+                winreg.SetValueEx(key, "DisplayName", 0, winreg.REG_SZ, "PDF Toolkit")
+                winreg.SetValueEx(key, "DisplayVersion", 0, winreg.REG_SZ, APP_VERSION)
+                winreg.SetValueEx(key, "Publisher", 0, winreg.REG_SZ, "")
+                winreg.SetValueEx(key, "InstallLocation", 0, winreg.REG_SZ, current_dir)
+                winreg.SetValueEx(key, "UninstallString", 0, winreg.REG_SZ, f'"{current_exe}" --uninstall')
+                winreg.SetValueEx(key, "DisplayIcon", 0, winreg.REG_SZ, current_exe)
+                winreg.SetValueEx(key, "NoModify", 0, winreg.REG_DWORD, 1)
+                winreg.SetValueEx(key, "NoRepair", 0, winreg.REG_DWORD, 1)
+                
+                # 估算檔案大小 (KB)
+                try:
+                    file_size = os.path.getsize(current_exe) // 1024
+                    winreg.SetValueEx(key, "EstimatedSize", 0, winreg.REG_DWORD, file_size)
+                    self._log_message(f"檔案大小：{file_size} KB", "info")
+                except Exception as size_error:
+                    self._log_message(f"無法計算檔案大小：{size_error}", "warning")
+            
+            self._log_message("卸載資訊註冊完成", "success")
+            self._log_message("✅ 應用程式已完全註冊到系統", "success")
+            
+        except Exception as e:
+            self._log_message(f"註冊應用程式失敗：{e}", "error")
+            # 顯示詳細錯誤給用戶
+            messagebox.showerror(
+                "註冊失敗", 
+                f"無法自動註冊應用程式到系統：\n{e}\n\n"
+                "您仍可以正常使用程式，但需要手動創建捷徑。"
+            )
+
+    def _create_start_menu_shortcut(self):
+        """自動創建開始功能表捷徑"""
+        try:
+            import winshell
+            from win32com.client import Dispatch
+            import sys
+            import os
+            
+            # 獲取當前執行檔路徑
+            if getattr(sys, 'frozen', False):
+                # 打包模式：使用執行檔
+                current_exe = sys.executable
+                current_dir = os.path.dirname(current_exe)
+                self._log_message(f"開始功能表捷徑 - 打包模式：{current_exe}", "info")
+            else:
+                # 開發模式：使用 python 解釋器執行腳本
+                python_exe = sys.executable
+                script_path = os.path.abspath(__file__)
+                current_dir = os.path.dirname(script_path)
+                self._log_message(f"開始功能表捷徑 - 開發模式：{python_exe} {script_path}", "info")
+            
+            # 創建開始功能表捷徑
+            start_menu = winshell.start_menu()
+            shortcut_path = os.path.join(start_menu, "PDF Toolkit.lnk")
+            
+            shell = Dispatch('WScript.Shell')
+            shortcut = shell.CreateShortCut(shortcut_path)
+            
+            if getattr(sys, 'frozen', False):
+                # 打包模式：直接指向執行檔
+                shortcut.Targetpath = current_exe
+            else:
+                # 開發模式：指向 Python 解釋器，參數為腳本路徑
+                shortcut.Targetpath = python_exe
+                shortcut.Arguments = f'"{script_path}"'
+                
+            shortcut.WorkingDirectory = current_dir
+            shortcut.Description = "PDF Toolkit - Complete PDF Solution"
+            
+            # 設定圖示
+            icon_path = os.path.join(current_dir, "icon.ico")
+            if os.path.exists(icon_path):
+                shortcut.IconLocation = icon_path
+            
+            shortcut.save()
+            
+            self._log_message("開始功能表捷徑已創建", "success")
+            
+        except Exception as e:
+            self._log_message(f"創建開始功能表捷徑失敗：{e}", "warning")
 
     def _show_current_version_info(self):
         """顯示當前版本的更新說明"""
