@@ -39,3 +39,9 @@ Thumbs.db
 
 # 環境變數檔案
 .env
+.env.backup
+.env.local
+.env.production
+.env.development
+.env.test
+.env.staging
