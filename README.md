@@ -343,6 +343,12 @@ These executables are standalone and do not require Python installation on the t
 
 ## Version History / バージョン履歴 / 版本歷史
 
+### v4.2.1 - Security & UI Optimization
+- 🔒 **SECURITY**: Moved GitLab tokens to .env file for better security
+- 🎨 **IMPROVED**: Fixed preview area spacing issue for better layout
+- 🧹 **CLEANUP**: Removed unused documentation and temporary files
+- 🔧 **IMPROVED**: Enhanced thumbnail grid layout with proper column weights
+
 ### v4.2.0 - Watermark & UI Enhancement
 - ✨ **NEW**: PDF watermark functionality with text and image support
 - ✨ **NEW**: Japanese-inspired color scheme based on traditional Nippon colors
@@ -393,4 +399,4 @@ These executables are standalone and do not require Python installation on the t
 - ✨ Page reordering capabilities
 - ✨ Real-time preview
 
-Current version / 現在のバージョン / 目前版本: **v4.2.0**
+Current version / 現在のバージョン / 目前版本: **v4.2.1**

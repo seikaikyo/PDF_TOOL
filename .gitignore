@@ -36,3 +36,6 @@ Thumbs.db
 *.tmp
 *.temp
 .claude/settings.local.json
+
+# 環境變數檔案
+.env

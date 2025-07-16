@@ -1,6 +1,6 @@
 {
   "app_name": "PDF Toolkit",
-  "current_version": "4.0.0",
+  "current_version": "4.2.1",
   "update_check_url": "https://api.github.com/repos/seikaikyo/PDF_TOOL/releases/latest",
   "download_url": "https://github.com/seikaikyo/PDF_TOOL/releases/latest",
   "auto_check_enabled": true,

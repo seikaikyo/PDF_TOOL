@@ -31,7 +31,7 @@ import ssl
 from packaging import version
 
 # 應用程式版本信息
-APP_VERSION = "4.2.0"
+APP_VERSION = "4.2.1"
 
 # 多源更新配置 - 支援內網 GitLab 和外網 GitHub
 UPDATE_SOURCES = {
@@ -39,7 +39,7 @@ UPDATE_SOURCES = {
         'name': 'Internal GitLab',
         'api_url': "https://gitlab.example.com/api/v4/projects/team%2Fpdf_tool/releases?per_page=1",
         'download_url': "https://gitlab.example.com/team/pdf_tool/-/releases",
-        'token': "{{GITLAB_TOKEN}}",
+        'token': os.getenv('GITLAB_TOKEN'),
         'priority': 1  # 優先級：1=最高
     },
     'github': {
@@ -2015,7 +2015,7 @@ class PDFToolkit:
 
         # 預覽說明
         info_frame = tk.Frame(preview_frame, bg=self.colors['bg_panel'])
-        info_frame.pack(fill="x", padx=10, pady=5)
+        info_frame.pack(fill="x", padx=5, pady=2)
 
         tk.Label(info_frame,
                  text="提示：按住滑鼠左鍵拖曳頁面縮圖可以調整合併順序",
@@ -2025,7 +2025,7 @@ class PDFToolkit:
 
         # 建立可滾動的預覽區域
         canvas_frame = tk.Frame(preview_frame, bg=self.colors['bg_panel'])
-        canvas_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        canvas_frame.pack(fill="both", expand=True, padx=5, pady=(0, 5))
 
         # Canvas 和滾動條
         self.preview_canvas = tk.Canvas(
@@ -2415,6 +2415,10 @@ class PDFToolkit:
             row = i // cols
             col = i % cols
             self._create_thumbnail(row, col, i, page_info)
+
+        # 配置列權重以消除右側空白
+        for col in range(cols):
+            self.thumbnail_frame.columnconfigure(col, weight=1)
 
         # 更新 Canvas 滾動區域
         self.thumbnail_frame.update_idletasks()
