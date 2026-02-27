@@ -38,8 +38,8 @@ APP_VERSION = "4.2.1"
 UPDATE_SOURCES = {
     'gitlab': {
         'name': 'Internal GitLab',
-        'api_url': "https://gitlab.example.com/api/v4/projects/team%2Fpdf_tool/releases?per_page=1",
-        'download_url': "https://gitlab.example.com/team/pdf_tool/-/releases",
+        'api_url': os.getenv('GITLAB_BASE_URL', 'https://gitlab.example.com') + "/api/v4/projects/" + os.getenv('GITLAB_PROJECT_PATH', 'team%2Fpdf_tool') + "/releases?per_page=1",
+        'download_url': os.getenv('GITLAB_BASE_URL', 'https://gitlab.example.com') + "/" + os.getenv('GITLAB_PROJECT_PATH', 'team/pdf_tool').replace('%2F', '/') + "/-/releases",
         'token': os.getenv('GITLAB_TOKEN'),
         'priority': 1  # 優先級：1=最高
     },
