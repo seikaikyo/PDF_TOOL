@@ -68,7 +68,7 @@ def register_application(install_path):
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER, uninstall_key_path) as key:
             winreg.SetValueEx(key, "DisplayName", 0, winreg.REG_SZ, "PDF Toolkit")
             winreg.SetValueEx(key, "DisplayVersion", 0, winreg.REG_SZ, "4.2.1")
-            winreg.SetValueEx(key, "Publisher", 0, winreg.REG_SZ, "")
+            winreg.SetValueEx(key, "Publisher", 0, winreg.REG_SZ, "PDF Toolkit")
             winreg.SetValueEx(key, "InstallLocation", 0, winreg.REG_SZ, install_path)
             winreg.SetValueEx(key, "UninstallString", 0, winreg.REG_SZ, f'"{exe_path}" --uninstall')
             winreg.SetValueEx(key, "DisplayIcon", 0, winreg.REG_SZ, exe_path)

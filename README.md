@@ -339,7 +339,7 @@ These executables are standalone and do not require Python installation on the t
 
 ## License / ライセンス / 授權條款
 
-© 2025 PDF Toolkit | Created by 
+© 2025 PDF Toolkit
 
 ## Version History / バージョン履歴 / 版本歷史
 

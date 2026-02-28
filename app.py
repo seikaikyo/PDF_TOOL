@@ -1637,7 +1637,7 @@ class AboutDialog(tk.Toplevel):
         about_content_frame.pack(expand=True, fill="both", padx=20, pady=20)
 
         about_text = tk.Label(about_content_frame,
-                              text="© 2025 PDF Toolkit | Created by \n\n"
+                              text="© 2025 PDF Toolkit\n\n"
                               "一個完整的 PDF 處理解決方案\n"
                               "整合合併、簽名、拆分、壓縮、浮水印功能\n\n"
                               "使用 Python 和 Tkinter 構建\n"
@@ -2316,7 +2316,7 @@ class PDFToolkit:
 
         # 版權資訊
         tk.Label(status_frame,
-                 text="© 2025 PDF 工具包 | 作者：",
+                 text="© 2025 PDF 工具包",
                  bg=self.colors['bg_panel'],
                  fg=self.colors['fg_secondary'],
                  font=("Microsoft YaHei", 9)).pack(side="left", padx=10)
@@ -3326,7 +3326,7 @@ class PDFToolkit:
             with winreg.CreateKey(winreg.HKEY_CURRENT_USER, uninstall_key_path) as key:
                 winreg.SetValueEx(key, "DisplayName", 0, winreg.REG_SZ, "PDF Toolkit")
                 winreg.SetValueEx(key, "DisplayVersion", 0, winreg.REG_SZ, APP_VERSION)
-                winreg.SetValueEx(key, "Publisher", 0, winreg.REG_SZ, "")
+                winreg.SetValueEx(key, "Publisher", 0, winreg.REG_SZ, "PDF Toolkit")
                 winreg.SetValueEx(key, "InstallLocation", 0, winreg.REG_SZ, current_dir)
                 winreg.SetValueEx(key, "UninstallString", 0, winreg.REG_SZ, f'"{current_exe}" --uninstall')
                 winreg.SetValueEx(key, "DisplayIcon", 0, winreg.REG_SZ, current_exe)
